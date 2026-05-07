@@ -1,5 +1,5 @@
 import chess
-from . import evaluation
+from . import evaluation, transposition
 
 PIECE_VALUES = {
     chess.PAWN: 100,
@@ -9,6 +9,8 @@ PIECE_VALUES = {
     chess.QUEEN: 900,
     chess.KING: 1000,
 }
+
+tt = transposition.TranspositionTable()
 
 def find_best_move(board: chess.Board, depth: int) -> chess.Move | None:
     if depth == 0 or board.is_game_over():
@@ -22,6 +24,18 @@ def find_best_move(board: chess.Board, depth: int) -> chess.Move | None:
     else:
         best_score = float("inf")
     best_move = None
+
+    key = board._transposition_key()
+    entry = tt.get(key)
+    if entry is not None and entry.depth >= depth:
+        if entry.flag == transposition.TTFlag.EXACT:
+            return entry.best_move
+        if entry.flag == transposition.TTFlag.LOWER:
+            alpha = max(alpha, entry.eval)
+        elif entry.flag == transposition.TTFlag.UPPER:
+            beta = min(beta, entry.eval)
+        if alpha >= beta:
+            return entry.best_move
 
     for move in order_moves(board):
         board.push(move)
@@ -38,6 +52,8 @@ def find_best_move(board: chess.Board, depth: int) -> chess.Move | None:
                 best_move = move
             beta = min(beta, best_score)
 
+    if best_move is not None:
+        tt.insert(key, transposition.Entry(depth, best_score, best_move, transposition.TTFlag.EXACT))
     return best_move
 
 def alphabeta(board: chess.Board, depth: int, alpha, beta) -> int:
@@ -45,8 +61,24 @@ def alphabeta(board: chess.Board, depth: int, alpha, beta) -> int:
         return evaluation.evaluate_board(board)
     maxPlayer = True if board.turn == chess.WHITE else False
 
+    alpha_original = alpha
+    beta_original = beta
+    key = board._transposition_key()
+    entry = tt.get(key)
+
+    if entry is not None and entry.depth >= depth:
+        if entry.flag == transposition.TTFlag.EXACT:
+            return entry.eval
+        if entry.flag == transposition.TTFlag.LOWER:
+            alpha = max(alpha, entry.eval)
+        elif entry.flag == transposition.TTFlag.UPPER:
+            beta = min(beta, entry.eval)
+        if alpha >= beta:
+            return entry.eval
+
     if maxPlayer: #White
         best_score = float("-inf")
+        best_move = None
         has_move = False
         for move in order_moves(board):
             has_move = True
@@ -55,17 +87,29 @@ def alphabeta(board: chess.Board, depth: int, alpha, beta) -> int:
             board.pop()
             if score > best_score:
                 best_score = score
+                best_move = move
             if score > alpha:
                 alpha = score
             if alpha >= beta:
                 break
 
         if not has_move:
-            return -999999 if board.is_check() else 0
+            best_score = evaluation.evaluate_board(board)
+            tt.insert(key, transposition.Entry(depth, best_score, best_move, transposition.TTFlag.EXACT))
+            return best_score
+
+        if best_score <= alpha_original:
+            flag = transposition.TTFlag.UPPER
+        elif best_score >= beta_original:
+            flag = transposition.TTFlag.LOWER
+        else:
+            flag = transposition.TTFlag.EXACT
+        tt.insert(key, transposition.Entry(depth, best_score, best_move, flag))
         return best_score
 
     else: #Black
         best_score = float("inf")
+        best_move = None
         has_move = False
         for move in order_moves(board):
             has_move = True
@@ -74,19 +118,35 @@ def alphabeta(board: chess.Board, depth: int, alpha, beta) -> int:
             board.pop()
             if score < best_score:
                 best_score = score
+                best_move = move
             if score < beta:
                 beta = score
             if alpha >= beta:
                 break
 
         if not has_move:
-            return 999999 if board.is_check() else 0
+            best_score = evaluation.evaluate_board(board)
+            tt.insert(key, transposition.Entry(depth, best_score, best_move, transposition.TTFlag.EXACT))
+            return best_score
+
+        if best_score <= alpha_original:
+            flag = transposition.TTFlag.UPPER
+        elif best_score >= beta_original:
+            flag = transposition.TTFlag.LOWER
+        else:
+            flag = transposition.TTFlag.EXACT
+        tt.insert(key, transposition.Entry(depth, best_score, best_move, flag))
         return best_score
 
 def order_moves(board: chess.Board):
-    return sorted(board.legal_moves, key=lambda move: score_move(board, move), reverse=True)
+    entry = tt.get(board._transposition_key())
+    tt_move = entry.best_move if entry is not None else None
+    return sorted(board.legal_moves, key=lambda move: score_move(board, move, tt_move), reverse=True)
 
-def score_move(board: chess.Board, move: chess.Move) -> int:
+def score_move(board: chess.Board, move: chess.Move, tt_move: chess.Move | None = None) -> int:
+    if tt_move == move:
+        return 10_000_000
+
     is_promotion = False
     promotion_piece = move.promotion
     if promotion_piece is not None:
