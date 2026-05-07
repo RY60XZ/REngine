@@ -12,6 +12,14 @@ PIECE_VALUES = {
 
 tt = transposition.TranspositionTable()
 
+def find_best_move_iterative(board: chess.Board, depth: int) -> chess.Move | None:
+    best_move = None
+    for i in range(1, depth+1):
+        move = find_best_move(board, i)
+        if move is not None:
+            best_move = move
+    return best_move
+
 def find_best_move(board: chess.Board, depth: int) -> chess.Move | None:
     if depth == 0 or board.is_game_over():
         return None
@@ -151,7 +159,6 @@ def score_move(board: chess.Board, move: chess.Move, tt_move: chess.Move | None 
     promotion_piece = move.promotion
     if promotion_piece is not None:
         is_promotion = True
-    is_check = board.gives_check(move)
     is_capture = board.is_capture(move)
     aggressor = None
     victim = None
@@ -172,8 +179,6 @@ def score_move(board: chess.Board, move: chess.Move, tt_move: chess.Move | None 
     score = 0
     if is_promotion:
         score += PIECE_VALUES[promotion_piece] * 10
-    if is_check:
-        score += 1000
     if is_capture:
         score += PIECE_VALUES[victim.piece_type] * 10 + (PIECE_VALUES[chess.KING]-PIECE_VALUES[aggressor.piece_type])
     return score

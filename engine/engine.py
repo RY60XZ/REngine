@@ -17,4 +17,4 @@ class RandomEngine(BaseEngine):
 
 class ClassicalEngine(BaseEngine):
     def make_move(self, board: chess.Board) -> chess.Move | None:
-        return search.find_best_move(board, depth=self.depth)
+        return search.find_best_move_iterative(board, depth=self.depth)

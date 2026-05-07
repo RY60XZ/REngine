@@ -14,9 +14,9 @@ def evaluate_board(board: chess.Board) -> int:
     if board.is_game_over():
         winner = board.outcome().winner
         if winner == chess.WHITE:
-            return 999999
+            return 999999 - board.halfmove_clock * 100
         elif winner == chess.BLACK:
-            return -999999
+            return -999999 + board.halfmove_clock * 100
         return 0
 
     score = 0
