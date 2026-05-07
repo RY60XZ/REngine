@@ -27,10 +27,14 @@ class MaterialEvaluator(Evaluator):
                 return -999999 + board.halfmove_clock * 100
             return 0
 
+        return self.evaluate_material(board)
+
+    def evaluate_material(self, board: chess.Board) -> int:
         score = 0
-        for p in board.piece_map().values():
-            val = PIECE_VALUES[p.piece_type]
-            score += val if p.color == chess.WHITE else -val
+        for piece_type, value in PIECE_VALUES.items():
+            white_count = board.pieces_mask(piece_type, chess.WHITE).bit_count()
+            black_count = board.pieces_mask(piece_type, chess.BLACK).bit_count()
+            score += value * (white_count - black_count)
         return score
 
 _default_evaluator = MaterialEvaluator()

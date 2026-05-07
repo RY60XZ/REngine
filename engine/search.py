@@ -149,14 +149,17 @@ def alphabeta(board: chess.Board, depth: int, alpha, beta) -> int:
         return best_score
 
 def quiescence(board: chess.Board, alpha, beta, depth: int) -> int:
-    if depth == 0 or board.is_game_over():
+    if board.is_game_over():
         return evaluator.evaluate_board(board)
+    if depth == 0:
+        return evaluator.evaluate_material(board)
 
     maxPlayer = True if board.turn == chess.WHITE else False
-    moves = select_chaotic_moves(board)
+    in_check = board.is_check()
+    moves = select_chaotic_moves(board, in_check)
 
     if maxPlayer:
-        stand_pat = float("-inf") if board.is_check() else evaluator.evaluate_board(board)
+        stand_pat = float("-inf") if in_check else evaluator.evaluate_material(board)
         if stand_pat >= beta:
             return beta
         if stand_pat > alpha:
@@ -173,12 +176,12 @@ def quiescence(board: chess.Board, alpha, beta, depth: int) -> int:
             if score > alpha:
                 alpha = score
 
-        if not has_move and board.is_check():
+        if not has_move and in_check:
             return evaluator.evaluate_board(board)
         return alpha
 
     else:
-        stand_pat = float("inf") if board.is_check() else evaluator.evaluate_board(board)
+        stand_pat = float("inf") if in_check else evaluator.evaluate_material(board)
         if stand_pat <= alpha:
             return alpha
         if stand_pat < beta:
@@ -195,22 +198,46 @@ def quiescence(board: chess.Board, alpha, beta, depth: int) -> int:
             if score < beta:
                 beta = score
 
-        if not has_move and board.is_check():
+        if not has_move and in_check:
             return evaluator.evaluate_board(board)
         return beta
 
 def order_moves(board: chess.Board):
     entry = tt.get(board._transposition_key())
     tt_move = entry.best_move if entry is not None else None
-    return sorted(board.legal_moves, key=lambda move: score_move(board, move, tt_move), reverse=True)
 
-def select_chaotic_moves(board: chess.Board):
-    scored_moves = [
-        (move, score_move(board, move))
-        for move in board.legal_moves
-    ]
-    if not board.is_check():
-        scored_moves = [item for item in scored_moves if item[1] > 0]
+    tt_moves = []
+    tactical_moves = []
+    quiet_moves = []
+
+    for move in board.legal_moves:
+        if move == tt_move:
+            tt_moves.append(move)
+        elif move.promotion is not None or board.is_capture(move):
+            tactical_moves.append((move, score_move(board, move)))
+        else:
+            quiet_moves.append(move)
+
+    tactical_moves.sort(key=lambda item: item[1], reverse=True)
+    return tt_moves + [move for move, score in tactical_moves] + quiet_moves
+
+def select_chaotic_moves(board: chess.Board, in_check: bool | None = None):
+    if in_check is None:
+        in_check = board.is_check()
+
+    if in_check:
+        scored_moves = [(move, score_move(board, move)) for move in board.legal_moves]
+        scored_moves.sort(key=lambda item: item[1], reverse=True)
+        return [move for move, score in scored_moves]
+
+    scored_moves = [(move, score_move(board, move)) for move in board.generate_legal_captures()]
+
+    promotion_rank = chess.BB_RANK_7 if board.turn == chess.WHITE else chess.BB_RANK_2
+    if board.pawns & board.occupied_co[board.turn] & promotion_rank:
+        for move in board.legal_moves:
+            if move.promotion is not None and not board.is_capture(move):
+                scored_moves.append((move, score_move(board, move)))
+
     scored_moves.sort(key=lambda item: item[1], reverse=True)
     return [move for move, score in scored_moves]
 
