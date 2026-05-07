@@ -2,7 +2,7 @@ import chess
 from engine.engine import RandomEngine, ClassicalEngine
 
 board = chess.Board()
-engine = ClassicalEngine(4)
+engine = ClassicalEngine(6)
 
 while not board.is_game_over():
     print(board.unicode())

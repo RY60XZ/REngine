@@ -11,6 +11,8 @@ PIECE_VALUES = {
 }
 
 tt = transposition.TranspositionTable()
+evaluator = evaluation.MaterialEvaluator()
+QUIESCENCE_DEPTH = 6
 
 def find_best_move_iterative(board: chess.Board, depth: int) -> chess.Move | None:
     best_move = None
@@ -66,7 +68,7 @@ def find_best_move(board: chess.Board, depth: int) -> chess.Move | None:
 
 def alphabeta(board: chess.Board, depth: int, alpha, beta) -> int:
     if depth == 0:
-        return evaluation.evaluate_board(board)
+        return quiescence(board, alpha, beta, QUIESCENCE_DEPTH)
     maxPlayer = True if board.turn == chess.WHITE else False
 
     alpha_original = alpha
@@ -102,7 +104,7 @@ def alphabeta(board: chess.Board, depth: int, alpha, beta) -> int:
                 break
 
         if not has_move:
-            best_score = evaluation.evaluate_board(board)
+            best_score = evaluator.evaluate_board(board)
             tt.insert(key, transposition.Entry(depth, best_score, best_move, transposition.TTFlag.EXACT))
             return best_score
 
@@ -133,7 +135,7 @@ def alphabeta(board: chess.Board, depth: int, alpha, beta) -> int:
                 break
 
         if not has_move:
-            best_score = evaluation.evaluate_board(board)
+            best_score = evaluator.evaluate_board(board)
             tt.insert(key, transposition.Entry(depth, best_score, best_move, transposition.TTFlag.EXACT))
             return best_score
 
@@ -146,10 +148,71 @@ def alphabeta(board: chess.Board, depth: int, alpha, beta) -> int:
         tt.insert(key, transposition.Entry(depth, best_score, best_move, flag))
         return best_score
 
+def quiescence(board: chess.Board, alpha, beta, depth: int) -> int:
+    if depth == 0 or board.is_game_over():
+        return evaluator.evaluate_board(board)
+
+    maxPlayer = True if board.turn == chess.WHITE else False
+    moves = select_chaotic_moves(board)
+
+    if maxPlayer:
+        stand_pat = float("-inf") if board.is_check() else evaluator.evaluate_board(board)
+        if stand_pat >= beta:
+            return beta
+        if stand_pat > alpha:
+            alpha = stand_pat
+
+        has_move = False
+        for move in moves:
+            has_move = True
+            board.push(move)
+            score = quiescence(board, alpha, beta, depth - 1)
+            board.pop()
+            if score >= beta:
+                return beta
+            if score > alpha:
+                alpha = score
+
+        if not has_move and board.is_check():
+            return evaluator.evaluate_board(board)
+        return alpha
+
+    else:
+        stand_pat = float("inf") if board.is_check() else evaluator.evaluate_board(board)
+        if stand_pat <= alpha:
+            return alpha
+        if stand_pat < beta:
+            beta = stand_pat
+
+        has_move = False
+        for move in moves:
+            has_move = True
+            board.push(move)
+            score = quiescence(board, alpha, beta, depth - 1)
+            board.pop()
+            if score <= alpha:
+                return alpha
+            if score < beta:
+                beta = score
+
+        if not has_move and board.is_check():
+            return evaluator.evaluate_board(board)
+        return beta
+
 def order_moves(board: chess.Board):
     entry = tt.get(board._transposition_key())
     tt_move = entry.best_move if entry is not None else None
     return sorted(board.legal_moves, key=lambda move: score_move(board, move, tt_move), reverse=True)
+
+def select_chaotic_moves(board: chess.Board):
+    scored_moves = [
+        (move, score_move(board, move))
+        for move in board.legal_moves
+    ]
+    if not board.is_check():
+        scored_moves = [item for item in scored_moves if item[1] > 0]
+    scored_moves.sort(key=lambda item: item[1], reverse=True)
+    return [move for move, score in scored_moves]
 
 def score_move(board: chess.Board, move: chess.Move, tt_move: chess.Move | None = None) -> int:
     if tt_move == move:

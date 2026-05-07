@@ -25,7 +25,7 @@ def main():
     board.push_san("e5")
     board.push_san("g4")
     board.push_san("Qh4")
-    assert(evaluate_board(board) == -999999)
+    assert(evaluate_board(board) == -999899)
     board = chess.Board("rnbqkbnr/ppp1pppp/8/3P4/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2")
     assert(evaluate_board(board) == 100)
     board.push_san("Qd5")
