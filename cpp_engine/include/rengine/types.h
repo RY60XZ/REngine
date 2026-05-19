@@ -1,0 +1,35 @@
+#ifndef CPP_ENGINE_TYPES_H
+#define CPP_ENGINE_TYPES_H
+
+#include <cstdint>
+
+namespace rengine {
+    using Bitboard = std::uint64_t;
+    using Square = int;
+    enum Color {WHITE = 0, BLACK =1};
+    enum PieceType {
+        PAWN = 0,
+        KNIGHT,
+        BISHOP,
+        ROOK,
+        QUEEN,
+        KING,
+    };
+    enum Piece {
+        NO_PIECE = 0,
+        WHITE_PAWN,
+        WHITE_KNIGHT,
+        WHITE_BISHOP,
+        WHITE_ROOK,
+        WHITE_QUEEN,
+        WHITE_KING,
+        BLACK_PAWN,
+        BLACK_KNIGHT,
+        BLACK_BISHOP,
+        BLACK_ROOK,
+        BLACK_QUEEN,
+        BLACK_KING
+    };
+
+}
+#endif //CPP_ENGINE_TYPES_H
