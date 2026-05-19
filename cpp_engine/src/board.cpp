@@ -17,17 +17,17 @@ namespace rengine{
 
         board.side_to_move = WHITE;
         board.castling_rights = 0;
-        board.en_passant_square = -1;
+        board.en_passant_square = INVALID_SQUARE;
         board.half_move_clock = 0;
         board.full_move_number = 1;
     }
 
     void set_piece(Board &board, Square square, Piece piece) {
-        assert(square>=0 && square<64);
+        assert(square<64);
         assert(piece != NO_PIECE);
         assert(board.squares[square] == NO_PIECE);
         int piece_color = color_of(piece), piece_type = piece_type_of(piece);
-        Bitboard pos_mask = 1ULL<<square;
+        Bitboard pos_mask = Bitboard{1} << square;
         board.pieces[piece_color][piece_type] |= pos_mask;
         board.occupied[piece_color] |= pos_mask;
         board.all |= pos_mask;
@@ -35,11 +35,11 @@ namespace rengine{
     }
 
     void remove_piece(Board &board, Square square) {
-        assert(square>=0 && square<64);
+        assert(square<64);
         Piece piece = board.squares[square];
         assert(piece != NO_PIECE);
         int piece_color = color_of(piece), piece_type = piece_type_of(piece);
-        Bitboard pos_mask = ~(1ULL<<square);
+        Bitboard pos_mask = ~(Bitboard{1}<<square);
         board.pieces[piece_color][piece_type] &= pos_mask;
         board.occupied[piece_color] &= pos_mask;
         board.all &= pos_mask;
@@ -47,8 +47,8 @@ namespace rengine{
     }
 
     void move_piece(Board &board, Square from, Square to) {
-        assert(from>=0 && from<64);
-        assert(to>=0 && to<64);
+        assert(from<64);
+        assert(to<64);
         Piece from_piece = board.squares[from];
         assert(from_piece != NO_PIECE);
         assert(board.squares[to] == NO_PIECE);

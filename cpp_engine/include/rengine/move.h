@@ -17,8 +17,8 @@ namespace rengine {
     };
 
     inline Move encode_move(Square from, Square to, MoveFlag flag = QUIET, PieceType promotion=PAWN) {
-        assert(from>=0 && from<64);
-        assert(to>=0 && to<64);
+        assert(from<64);
+        assert(to<64);
         assert(static_cast<int>(flag)>=0 && static_cast<int>(flag)<16);
         assert(static_cast<int>(promotion)>=0 && static_cast<int>(promotion)<8);
         return static_cast<Move>(

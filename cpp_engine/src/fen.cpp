@@ -116,7 +116,7 @@ namespace rengine {
 
         //en_passant
         fen += ' ';
-        if (board.en_passant_square == -1) {
+        if (board.en_passant_square == INVALID_SQUARE) {
             fen += '-';
         }
         else {

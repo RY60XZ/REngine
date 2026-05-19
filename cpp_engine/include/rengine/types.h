@@ -5,7 +5,7 @@
 
 namespace rengine {
     using Bitboard = std::uint64_t;
-    using Square = int;
+    using Square = unsigned; //0xFFFFFFFF
     enum Color {WHITE = 0, BLACK =1};
     enum PieceType {
         PAWN = 0,
@@ -34,6 +34,7 @@ namespace rengine {
     constexpr unsigned WHITE_QUEENSIDE_CASTLING = 2;
     constexpr unsigned BLACK_KINGSIDE_CASTLING = 4;
     constexpr unsigned BLACK_QUEENSIDE_CASTLING = 8;
+    constexpr unsigned INVALID_SQUARE = ~Square{0};
 
 }
 #endif //CPP_ENGINE_TYPES_H

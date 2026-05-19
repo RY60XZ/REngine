@@ -5,11 +5,11 @@
 #include<string>
 namespace rengine {
     inline int file_of(Square square) {
-        assert(square>=0 && square<64);
+        assert(square<64);
         return static_cast<int>(square) & 7;
     }
     inline int rank_of(Square square) {
-        assert(square>=0 && square<64);
+        assert(square<64);
         return static_cast<int>(square)>>3;
     }
     inline Square make_square(int file, int rank) {
