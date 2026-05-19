@@ -46,13 +46,13 @@ namespace rengine{
         board.squares[square] = NO_PIECE;
     }
 
-    void move_piece(Board &board, Square from_square, Square to_square) {
-        assert(from_square>=0 && from_square<64);
-        assert(to_square>=0 && to_square<64);
-        Piece from_piece = board.squares[from_square];
+    void move_piece(Board &board, Square from, Square to) {
+        assert(from>=0 && from<64);
+        assert(to>=0 && to<64);
+        Piece from_piece = board.squares[from];
         assert(from_piece != NO_PIECE);
-        assert(board.squares[to_square] == NO_PIECE);
-        remove_piece(board, from_square);
-        set_piece(board, to_square, from_piece);
+        assert(board.squares[to] == NO_PIECE);
+        remove_piece(board, from);
+        set_piece(board, to, from_piece);
     }
 }

@@ -19,7 +19,7 @@ namespace rengine {
     void clear(Board& board);
     void set_piece(Board& board, Square square, Piece piece);
     void remove_piece(Board&board, Square square);
-    void move_piece(Board&board, Square from_square, Square to_square); //assume to_square is empty
+    void move_piece(Board&board, Square from, Square to); //assume to_square is empty
     inline bool is_empty(const Board& board) {
         return board.all==0;
     }

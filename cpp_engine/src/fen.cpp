@@ -19,7 +19,7 @@ namespace rengine {
                 ++i;
                 continue;
             }
-            if (isdigit(curr_symbol)) {
+            if (std::isdigit(static_cast<unsigned char>(curr_symbol))) {
                 file += curr_symbol-'0';
                 ++i;
                 continue;
