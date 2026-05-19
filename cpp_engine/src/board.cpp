@@ -24,6 +24,7 @@ namespace rengine{
 
     void set_piece(Board &board, Square square, Piece piece) {
         assert(square>=0 && square<64);
+        assert(piece != NO_PIECE);
         assert(board.squares[square] == NO_PIECE);
         int piece_color = color_of(piece), piece_type = piece_type_of(piece);
         Bitboard pos_mask = 1ULL<<square;

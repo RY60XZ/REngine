@@ -1,16 +1,21 @@
 #ifndef CPP_ENGINE_SQUARE_H
 #define CPP_ENGINE_SQUARE_H
-#include "types.h"
-#include "string"
+#include<rengine/types.h>
+#include<cassert>
+#include<string>
 namespace rengine {
     inline int file_of(Square square) {
-        return static_cast<int>(square)>>3;
-    }
-    inline int rank_of(Square square) {
+        assert(square>=0 && square<64);
         return static_cast<int>(square) & 7;
     }
+    inline int rank_of(Square square) {
+        assert(square>=0 && square<64);
+        return static_cast<int>(square)>>3;
+    }
     inline Square make_square(int file, int rank) {
-        return static_cast<Square>((file<<3) + rank);
+        assert(file>=0 && file<8);
+        assert(rank>=0 && rank<8);
+        return static_cast<Square>((rank<<3) + file);
     }
     inline std::string square_name(Square square) {
         char f = 'a' + file_of(square);
@@ -18,6 +23,9 @@ namespace rengine {
         return std::string{f, r};
     }
     inline Square parse_square(const std::string& name) {
+        assert(name.size() == 2);
+        assert(name[0]>='a' && name[0]<='h');
+        assert(name[1]>='1' && name[1]<='8');
         return static_cast<Square>(((name[1]-'1')<<3) | (name[0]-'a'));
     }
 }

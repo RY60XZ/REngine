@@ -3,3 +3,9 @@ __pycache__/
 *.pyc
 .env
 .idea/
+.DS_Store
+*.egg-info/
+cpp_engine/.DS_Store
+cpp_engine/include/.DS_Store
+cpp_engine/cmake-build-*/
+cpp_engine/build/

@@ -30,6 +30,10 @@ namespace rengine {
         BLACK_QUEEN,
         BLACK_KING
     };
+    constexpr unsigned WHITE_KINGSIDE_CASTLING = 1;
+    constexpr unsigned WHITE_QUEENSIDE_CASTLING = 2;
+    constexpr unsigned BLACK_KINGSIDE_CASTLING = 4;
+    constexpr unsigned BLACK_QUEENSIDE_CASTLING = 8;
 
 }
 #endif //CPP_ENGINE_TYPES_H
