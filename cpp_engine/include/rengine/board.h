@@ -22,6 +22,7 @@ namespace rengine {
     void move_piece(Board&board, Square from, Square to); //assume to_square is empty
 
     constexpr Bitboard square_bb(Square square) {
+        assert(square < 64);
         return Bitboard{1} << static_cast<int>(square);
     }
 

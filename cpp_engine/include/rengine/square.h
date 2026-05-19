@@ -4,15 +4,15 @@
 #include<cassert>
 #include<string>
 namespace rengine {
-    inline int file_of(Square square) {
+    constexpr int file_of(Square square) {
         assert(square<64);
         return static_cast<int>(square) & 7;
     }
-    inline int rank_of(Square square) {
+    constexpr int rank_of(Square square) {
         assert(square<64);
         return static_cast<int>(square)>>3;
     }
-    inline Square make_square(int file, int rank) {
+    constexpr Square make_square(int file, int rank) {
         assert(file>=0 && file<8);
         assert(rank>=0 && rank<8);
         return static_cast<Square>((rank<<3) + file);
