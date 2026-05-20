@@ -35,6 +35,8 @@ namespace rengine {
     constexpr unsigned BLACK_KINGSIDE_CASTLING = 4;
     constexpr unsigned BLACK_QUEENSIDE_CASTLING = 8;
     constexpr unsigned INVALID_SQUARE = ~Square{0};
+    constexpr Bitboard BORDER =
+    0xFF000000000000FFULL | 0x0101010101010101ULL | 0x8080808080808080ULL;
 
 }
 #endif //CPP_ENGINE_TYPES_H

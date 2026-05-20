@@ -1,6 +1,6 @@
 #include <cassert>
-#include<rengine/board.h>
-#include<rengine/types.h>
+#include "rengine/board.h"
+#include "rengine/types.h"
 
 int main() {
     rengine::Board board;

@@ -1,6 +1,6 @@
 #ifndef CPP_ENGINE_BOARD_H
 #define CPP_ENGINE_BOARD_H
-#include<rengine/types.h>
+#include "rengine/types.h"
 #include<cassert>
 namespace rengine {
     struct Board {
@@ -29,13 +29,19 @@ namespace rengine {
     constexpr bool is_empty(const Board& board) {
         return board.all==0;
     }
+
     constexpr Color color_of(Piece piece) {
         assert(piece != NO_PIECE);
         return static_cast<Color>((static_cast<int>(piece)-1)/6);
     }
+
     constexpr PieceType piece_type_of(Piece piece) {
         assert(piece != NO_PIECE);
         return static_cast<PieceType>((static_cast<int>(piece)-1)%6);
+    }
+
+    constexpr bool is_border_square(Square square) {
+        return (BORDER & (Bitboard{1} << square)) != 0;
     }
 }
 #endif //CPP_ENGINE_BOARD_H

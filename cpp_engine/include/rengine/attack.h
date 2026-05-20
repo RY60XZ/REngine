@@ -1,7 +1,7 @@
 #ifndef CPP_ENGINE_ATTACK_H
 #define CPP_ENGINE_ATTACK_H
-#include<rengine/board.h>
-#include<rengine/square.h>
+#include "rengine/board.h"
+#include "rengine/square.h"
 #include<array>
 #include<cassert>
 #include<cstddef>
