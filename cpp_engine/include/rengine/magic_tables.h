@@ -24,16 +24,6 @@ namespace rengine {
         Bitboard blockers = occupancy & entry.mask;
         return static_cast<std::size_t>((blockers * entry.magic) >> (64 - entry.index_bits));
     }
-
-    inline Bitboard rook_attacks_from(Square square, Bitboard occupancy) {
-        const MagicEntry& entry = rook_magic_entries[square];
-        return rook_attacks[entry.offset + magic_index(occupancy, entry)];
-    }
-
-    inline Bitboard bishop_attacks_from(Square square, Bitboard occupancy) {
-        const MagicEntry& entry = bishop_magic_entries[square];
-        return bishop_attacks[entry.offset + magic_index(occupancy, entry)];
-    }
 }
 
 #endif //CPP_ENGINE_MAGIC_TABLE_H

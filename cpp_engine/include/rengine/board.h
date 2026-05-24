@@ -1,5 +1,6 @@
 #ifndef CPP_ENGINE_BOARD_H
 #define CPP_ENGINE_BOARD_H
+#include <bit>
 #include "rengine/types.h"
 #include<cassert>
 namespace rengine {
@@ -42,6 +43,12 @@ namespace rengine {
 
     constexpr bool is_border_square(Square square) {
         return (BORDER & (Bitboard{1} << square)) != 0;
+    }
+
+    inline Square king_square(const Board& board, Color color) {
+        Bitboard king_bitboard = board.pieces[color][KING];
+        assert(king_bitboard != 0);
+        return static_cast<Square>(std::countr_zero(king_bitboard));
     }
 }
 #endif //CPP_ENGINE_BOARD_H
