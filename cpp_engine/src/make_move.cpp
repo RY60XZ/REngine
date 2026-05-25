@@ -19,15 +19,41 @@ namespace rengine {
         if (piece_type_of(from_piece) == PAWN) board.half_move_clock = 0; //handle capture in case CAPTURE
         switch (flag) {
             case QUIET:
-                set_piece(board, to, from_piece);
-                remove_piece(board, from);
+            {
+                Bitboard from_bb = square_bb(from);
+                Bitboard to_bb = square_bb(to);
+                Bitboard move_bb = from_bb | to_bb;
+                PieceType from_piece_type = piece_type_of(from_piece);
+
+                board.pieces[by][from_piece_type] ^= move_bb;
+                board.occupied[by] ^= move_bb;
+                board.all ^= move_bb;
+
+                board.squares[from] = NO_PIECE;
+                board.squares[to] = from_piece;
                 break;
-            case CAPTURE:
+            }
+            case CAPTURE: {
                 board.half_move_clock = 0;
-                remove_piece(board, to);
-                set_piece(board, to, from_piece);
-                remove_piece(board, from);
+                Bitboard from_bb = square_bb(from);
+                Bitboard to_bb = square_bb(to);
+                Bitboard move_bb = from_bb | to_bb;
+                PieceType from_piece_type = piece_type_of(from_piece);
+                PieceType to_piece_type = piece_type_of(board.squares[to]);
+
+                board.pieces[by][from_piece_type] ^= move_bb;
+                board.occupied[by] ^= move_bb;
+
+                Color opposite = opposite_color(by);
+                board.pieces[opposite][to_piece_type] &= ~to_bb;
+                board.occupied[opposite] &= ~to_bb;
+
+                board.all &= ~from_bb;
+
+                board.squares[from] = NO_PIECE;
+                board.squares[to] = from_piece;
                 break;
+            }
             case DOUBLE_PAWN_PUSH:
                 set_piece(board, to, from_piece);
                 remove_piece(board, from);

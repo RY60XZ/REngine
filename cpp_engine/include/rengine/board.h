@@ -18,9 +18,6 @@ namespace rengine {
     };
 
     void clear(Board& board);
-    void set_piece(Board& board, Square square, Piece piece);
-    void remove_piece(Board&board, Square square);
-    void move_piece(Board&board, Square from, Square to); //assume to_square is empty
 
     constexpr Bitboard square_bb(Square square) {
         assert(square < 64);
@@ -53,6 +50,40 @@ namespace rengine {
 
     inline Color opposite_color(Color color) {
         return static_cast<Color>(!color);
+    }
+
+    inline void set_piece(Board &board, Square square, Piece piece) {
+        assert(square<64);
+        assert(piece != NO_PIECE);
+        assert(board.squares[square] == NO_PIECE);
+        int piece_color = color_of(piece), piece_type = piece_type_of(piece);
+        Bitboard pos_mask = Bitboard{1} << square;
+        board.pieces[piece_color][piece_type] |= pos_mask;
+        board.occupied[piece_color] |= pos_mask;
+        board.all |= pos_mask;
+        board.squares[square] = piece;
+    }
+
+    inline void remove_piece(Board &board, Square square) {
+        assert(square<64);
+        Piece piece = board.squares[square];
+        assert(piece != NO_PIECE);
+        int piece_color = color_of(piece), piece_type = piece_type_of(piece);
+        Bitboard pos_mask = ~(Bitboard{1}<<square);
+        board.pieces[piece_color][piece_type] &= pos_mask;
+        board.occupied[piece_color] &= pos_mask;
+        board.all &= pos_mask;
+        board.squares[square] = NO_PIECE;
+    }
+
+    inline void move_piece(Board &board, Square from, Square to) {
+        assert(from<64);
+        assert(to<64);
+        Piece from_piece = board.squares[from];
+        assert(from_piece != NO_PIECE);
+        assert(board.squares[to] == NO_PIECE);
+        remove_piece(board, from);
+        set_piece(board, to, from_piece);
     }
 }
 #endif //CPP_ENGINE_BOARD_H
