@@ -106,17 +106,17 @@ namespace rengine {
         return pawn_attacks[color][square];
     }
 
-    constexpr Bitboard rook_attacks_from(Square square, Bitboard occupancy) {
+    inline Bitboard rook_attacks_from(Square square, Bitboard occupancy) {
         const MagicEntry& entry = rook_magic_entries[square];
         return rook_attacks[entry.offset + magic_index(occupancy, entry)];
     }
 
-    constexpr Bitboard bishop_attacks_from(Square square, Bitboard occupancy) {
+    inline Bitboard bishop_attacks_from(Square square, Bitboard occupancy) {
         const MagicEntry& entry = bishop_magic_entries[square];
         return bishop_attacks[entry.offset + magic_index(occupancy, entry)];
     }
 
-    constexpr Bitboard queen_attacks_from(Square square, Bitboard occupancy) {
+    inline Bitboard queen_attacks_from(Square square, Bitboard occupancy) {
         return rook_attacks_from(square, occupancy) | bishop_attacks_from(square, occupancy);
     }
 

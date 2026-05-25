@@ -13,7 +13,7 @@ namespace rengine {
             count = 0;
         }
 
-        void push(Move move) {
+        void push_back(Move move) {
             assert(count < MAX_MOVES);
             moves[count++] = move;
         }

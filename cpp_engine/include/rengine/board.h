@@ -50,5 +50,9 @@ namespace rengine {
         assert(king_bitboard != 0);
         return static_cast<Square>(std::countr_zero(king_bitboard));
     }
+
+    inline Color opposite_color(Color color) {
+        return static_cast<Color>(!color);
+    }
 }
 #endif //CPP_ENGINE_BOARD_H
