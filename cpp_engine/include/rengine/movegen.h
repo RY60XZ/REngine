@@ -22,6 +22,8 @@ namespace rengine {
     void generate_pawn_en_passant_moves(const Board& board, MoveList& move_list, Color by);
     void generate_castling_moves(const Board& board, MoveList& move_list, Color by);
 
+    void generate_legal_moves(Board& board, MoveList& legal_move_list);
+
     inline Square pop_lsb(Bitboard& bb) {
         assert(bb!=0);
         auto square = static_cast<Square>(std::countr_zero(bb));

@@ -150,7 +150,7 @@ namespace rengine {
         generate_pawn_moves(board, move_list, WHITE);
         assert(has_move(move_list, parse_square("e5"), parse_square("d6"), EN_PASSANT));
 
-        board = board_from("8/8/8/3pP3/8/8/8/8 b - d6 0 1");
+        board = board_from("8/8/8/3pP3/8/8/8/8 w - - 0 1");
         move_list.clear();
         generate_pawn_moves(board, move_list, WHITE);
         assert(!has_move(move_list, parse_square("e5"), parse_square("d6"), EN_PASSANT));

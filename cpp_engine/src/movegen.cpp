@@ -1,6 +1,8 @@
 #include "rengine/movegen.h"
 #include "rengine/attack.h"
+#include "rengine/make_move.h"
 #include <bit>
+
 namespace rengine {
     namespace {
         constexpr Bitboard FILE_A = 0x0101010101010101ULL;
@@ -312,6 +314,21 @@ namespace rengine {
         generate_king_moves(board, move_list, by);
         generate_pawn_moves(board, move_list, by);
         generate_castling_moves(board, move_list, by);
+    }
+
+    void generate_legal_moves(Board &board, MoveList &legal_move_list) {
+        MoveList pseudo_legal_moves;
+        Color us = board.side_to_move;
+        generate_pseudo_legal_moves(board, pseudo_legal_moves, us);
+        Undo undo;
+        legal_move_list.clear();
+        for (auto pseudo_move : pseudo_legal_moves) {
+            make_move(board, pseudo_move, undo);
+            if (!in_check(board, us)) {
+                legal_move_list.push_back(pseudo_move);
+            }
+            unmake_move(board, undo);
+        }
     }
 
 
