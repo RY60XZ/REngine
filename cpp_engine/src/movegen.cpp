@@ -304,6 +304,7 @@ namespace rengine {
     }
 
     void generate_pseudo_legal_moves(const Board &board, MoveList &move_list, Color by) {
+        move_list.clear();
         generate_knight_moves(board, move_list, by);
         generate_bishop_moves(board, move_list, by);
         generate_rook_moves(board, move_list, by);
