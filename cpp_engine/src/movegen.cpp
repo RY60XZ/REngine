@@ -237,7 +237,7 @@ namespace rengine {
     }
 
     void generate_pawn_en_passant_moves(const Board &board, MoveList &move_list, Color by) {
-        if (board.side_to_move != by || board.en_passant_square == INVALID_SQUARE) return;
+        if (board.en_passant_square == INVALID_SQUARE) return;
         Bitboard possible_en_passant_attackers = pawn_attacks_from(board.en_passant_square, opposite_color(by)) & board.pieces[by][PAWN];
         while (possible_en_passant_attackers) {
             auto from = pop_lsb(possible_en_passant_attackers);

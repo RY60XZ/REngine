@@ -41,7 +41,7 @@ namespace rengine {
         return static_cast<MoveFlag>((move>>12) & 0xF);
     }
 
-    inline PieceType promotion_type(Move move) {
+    inline PieceType move_promotion_type(Move move) {
         return static_cast<PieceType>((move>>16) & 0x7);
     }
 

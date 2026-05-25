@@ -17,7 +17,7 @@ namespace rengine {
             if (move_from(move) == from &&
                 move_to(move) == to &&
                 move_flag(move) == flag &&
-                promotion_type(move) == promotion) {
+                move_promotion_type(move) == promotion) {
                 return true;
             }
         }
@@ -31,7 +31,7 @@ namespace rengine {
             if (move_from(move) == from &&
                 move_to(move) == to &&
                 move_flag(move) == flag &&
-                promotion_type(move) == promotion) {
+                move_promotion_type(move) == promotion) {
                 ++count;
             }
         }
