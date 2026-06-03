@@ -17,6 +17,7 @@ set(RENGINE_CORE_SOURCES
         src/make_move.cpp
         src/perft.cpp
         src/eval.cpp
+        src/search.cpp
 )
 
 set(RENGINE_CORE_HEADERS
@@ -34,6 +35,7 @@ set(RENGINE_CORE_HEADERS
         include/rengine/types.h
         include/rengine/eval.h
         include/rengine/search_types.h
+        include/rengine/search.h
 )
 
 add_library(rengine_core STATIC
@@ -86,8 +88,14 @@ target_link_libraries(test_move_format PRIVATE rengine_core)
 add_executable(test_eval tests/test_eval.cpp)
 target_link_libraries(test_eval PRIVATE rengine_core)
 
+add_executable(test_search_smoke tests/test_search_smoke.cpp)
+target_link_libraries(test_search_smoke PRIVATE rengine_core)
+
 add_executable(bench_perft bench/bench_perft.cpp)
 target_link_libraries(bench_perft PRIVATE rengine_core)
+
+add_executable(bench_search bench/bench_search.cpp)
+target_link_libraries(bench_search PRIVATE rengine_core)
 
 enable_testing()
 
@@ -96,3 +104,4 @@ add_test(NAME make_unmake COMMAND test_make_unmake)
 add_test(NAME perft COMMAND perft_test)
 add_test(NAME move_format COMMAND test_move_format)
 add_test(NAME eval COMMAND test_eval)
+add_test(NAME search_smoke COMMAND test_search_smoke)
