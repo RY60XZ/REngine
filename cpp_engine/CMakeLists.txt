@@ -40,6 +40,9 @@ target_link_libraries(test_make_unmake PRIVATE rengine_core)
 add_executable(perft_test tests/perft_test.cpp)
 target_link_libraries(perft_test PRIVATE rengine_core)
 
+add_executable(test_move_format tests/test_move_format.cpp)
+target_link_libraries(test_move_format PRIVATE rengine_core)
+
 add_executable(bench_perft bench/bench_perft.cpp)
 target_link_libraries(bench_perft PRIVATE rengine_core)
 
@@ -48,3 +51,4 @@ enable_testing()
 add_test(NAME movegen COMMAND test_movegen)
 add_test(NAME make_unmake COMMAND test_make_unmake)
 add_test(NAME perft COMMAND perft_test)
+add_test(NAME move_format COMMAND test_move_format)
