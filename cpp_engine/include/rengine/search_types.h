@@ -3,6 +3,7 @@
 #include"rengine/move.h"
 #include<chrono>
 #include<cstdint>
+#include<limits>
 #include<vector>
 
 namespace rengine {
@@ -14,7 +15,7 @@ namespace rengine {
     constexpr int MAX_PLY = 256;
     constexpr Score VALUE_MATE_IN_MAX_PLY = VALUE_MATE - MAX_PLY;
     constexpr Score VALUE_MATED_IN_MAX_PLY = -VALUE_MATE + MAX_PLY;
-    constexpr std::uint64_t NO_NODE_LIMIT = 0;
+    constexpr std::uint64_t NO_NODE_LIMIT = std::numeric_limits<std::uint64_t>::max();
 
     enum class StopReason {
         DepthLimit,
@@ -81,6 +82,14 @@ namespace rengine {
         SearchStats stats;
         std::vector<Move> principal_variation;
     };
+
+    struct SearchContext {
+        const SearchLimits& limits;
+        SearchStats stats;
+        std::chrono::steady_clock::time_point deadline;
+        bool stopped = false;
+    };
+
 }
 
 #endif //CPP_ENGINE_SEARCH_TYPES_H

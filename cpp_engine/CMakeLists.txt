@@ -36,6 +36,7 @@ set(RENGINE_CORE_HEADERS
         include/rengine/eval.h
         include/rengine/search_types.h
         include/rengine/search.h
+        include/rengine/draw.h
 )
 
 add_library(rengine_core STATIC

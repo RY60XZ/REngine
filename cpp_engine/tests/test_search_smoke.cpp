@@ -68,6 +68,41 @@ namespace rengine {
         assert(result.stats.nodes == 1);
         assert(result.stats.stop_reason == StopReason::NodeLimit);
     }
+
+    void test_terminal_checkmate() {
+        Board board = board_from("7k/5K2/7Q/8/8/8/8/8 b - - 0 1");
+        SearchLimits limits;
+        limits.depth = 1;
+
+        SearchResult result = search_position(board, limits);
+
+        assert(!result.has_best_move);
+        assert(result.score == mated_in(0));
+        assert(result.stats.stop_reason == StopReason::NoLegalMoves);
+    }
+
+    void test_terminal_stalemate() {
+        Board board = board_from("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1");
+        SearchLimits limits;
+        limits.depth = 1;
+
+        SearchResult result = search_position(board, limits);
+
+        assert(!result.has_best_move);
+        assert(result.score == VALUE_DRAW);
+        assert(result.stats.stop_reason == StopReason::NoLegalMoves);
+    }
+
+    void test_fifty_move_draw() {
+        Board board = board_from("4k3/8/8/8/8/8/8/4KQ2 w - - 100 1");
+        SearchLimits limits;
+        limits.depth = 1;
+
+        SearchResult result = search_position(board, limits);
+
+        assert(!result.has_best_move);
+        assert(result.score == VALUE_DRAW);
+    }
 }
 
 int main() {
@@ -75,4 +110,7 @@ int main() {
     rengine::test_material_capture_is_selected();
     rengine::test_static_depth_zero_search();
     rengine::test_node_limit_is_deterministic();
+    rengine::test_terminal_checkmate();
+    rengine::test_terminal_stalemate();
+    rengine::test_fifty_move_draw();
 }
