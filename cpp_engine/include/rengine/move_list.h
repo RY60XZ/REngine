@@ -18,6 +18,14 @@ namespace rengine {
             moves[count++] = move;
         }
 
+        void append(const Move* begin, const Move* end) {
+            int len = static_cast<int>(end - begin);
+            assert(count + len <= MAX_MOVES);
+            for (int i = 0; i < len; ++i) {
+                moves[count++] = begin[i];
+            }
+        }
+
         [[nodiscard]] int size() const {
             return count;
         }

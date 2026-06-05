@@ -55,6 +55,20 @@ namespace rengine {
         assert(result.score == 900);
     }
 
+    void test_depth_two_pv() {
+        Board board = board_from("q6k/8/8/8/8/8/8/R3K3 w - - 0 1");
+        SearchLimits limits;
+        limits.depth = 2;
+
+        SearchResult result = search_position(board, limits);
+
+        assert(result.has_best_move);
+        assert(result.completed_depth == 2);
+        assert(result.principal_variation.size() > 1);
+        assert(result.principal_variation.size() <= limits.depth);
+        assert(result.principal_variation[0] == result.best_move);
+    }
+
     void test_node_limit_is_deterministic() {
         Board board = board_from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         SearchLimits limits;
@@ -109,6 +123,7 @@ int main() {
     rengine::test_startpos_depth_one_search();
     rengine::test_material_capture_is_selected();
     rengine::test_static_depth_zero_search();
+    rengine::test_depth_two_pv();
     rengine::test_node_limit_is_deterministic();
     rengine::test_terminal_checkmate();
     rengine::test_terminal_stalemate();

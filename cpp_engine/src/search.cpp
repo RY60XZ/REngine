@@ -33,7 +33,7 @@ namespace rengine {
         }
     }
 
-    Score negamax(Board& board, int depth, Score alpha, Score beta, int ply, SearchContext& ctx) {
+    Score negamax(Board& board, int depth, Score alpha, Score beta, int ply, SearchContext& ctx, MoveList& pv) {
         if (should_stop(ctx)) {
             return alpha;
         }
@@ -65,11 +65,13 @@ namespace rengine {
             return evaluate(board);
         }
 
+        MoveList child_pv;
         Score best_score = -VALUE_INF;
         for (auto move : legal_moves) {
+            child_pv.clear();
             Undo undo{};
             make_move(board, move, undo);
-            Score current_score = -negamax(board, depth-1, -beta, -alpha, ply+1, ctx);
+            Score current_score = -negamax(board, depth-1, -beta, -alpha, ply+1, ctx, child_pv);
             unmake_move(board, undo);
 
             if (ctx.stopped) {
@@ -79,6 +81,9 @@ namespace rengine {
             best_score = std::max(best_score, current_score);
             if (best_score > alpha) {
                 alpha = best_score;
+                pv.clear();
+                pv.push_back(move);
+                pv.append(child_pv.begin(), child_pv.end());
             }
             if (alpha>=beta) {
                 ++ctx.stats.cutoffs;
@@ -87,6 +92,84 @@ namespace rengine {
         }
 
         return best_score;
+    }
+
+    SearchResult search_root(Board& board, int depth, SearchContext& ctx, Move previous_best) {
+        SearchResult result;
+
+        MoveList legal_moves;
+        generate_legal_moves(board, legal_moves);
+
+        if (legal_moves.empty()) {
+            result.score = in_check(board, board.side_to_move) ? mated_in(0) : VALUE_DRAW;
+            ctx.stats.stop_reason = StopReason::NoLegalMoves;
+            result.stats = ctx.stats;
+            return result;
+        }
+
+        if (is_fifty_move_rule_draw(board) ||
+            is_insufficient_material_draw(board) ||
+            is_threefold_draw(board)) {
+            result.score = VALUE_DRAW;
+            result.stats = ctx.stats;
+            return result;
+        }
+
+        Score best_score = -VALUE_INF;
+        Score alpha = -VALUE_INF;
+
+        auto search_move = [&](Move move) {
+            if (should_stop(ctx)) {
+                return false;
+            }
+
+            MoveList child_pv;
+            Undo undo{};
+            make_move(board, move, undo);
+            Score score = -negamax(board, depth-1, -VALUE_INF, -alpha, 1, ctx, child_pv);
+            unmake_move(board, undo);
+
+            if (ctx.stopped) {
+                return false;
+            }
+
+            if (!result.has_best_move || score > best_score) {
+                best_score = score;
+                result.best_move = move;
+                result.has_best_move = true;
+                result.score = score;
+                result.principal_variation.clear();
+                result.principal_variation.push_back(move);
+                result.principal_variation.append(child_pv.begin(), child_pv.end());
+            }
+            if (score>alpha) {
+                alpha = score;
+            }
+            return true;
+        };
+
+        if (previous_best != 0) {
+            for (Move move : legal_moves) {
+                if (move == previous_best && !search_move(move)) {
+                    result.stats = ctx.stats;
+                    return result;
+                }
+            }
+        }
+
+        for (Move move : legal_moves) {
+            if (move == previous_best) {
+                continue;
+            }
+            if (!search_move(move)) {
+                result.stats = ctx.stats;
+                return result;
+            }
+        }
+
+        result.completed_depth = depth;
+        result.stats = ctx.stats;
+        return result;
     }
 
     SearchResult search_position(Board& board, const SearchLimits& limits) {
@@ -106,60 +189,20 @@ namespace rengine {
             return result;
         }
 
-        MoveList legal_moves;
-        generate_legal_moves(board, legal_moves);
+        Move previous_best = 0;
 
-        if (legal_moves.empty()) {
-            result.score = in_check(board, board.side_to_move) ? mated_in(0) : VALUE_DRAW;
-            ctx.stats.stop_reason = StopReason::NoLegalMoves;
-            result.stats = ctx.stats;
-            finish_timing(result, start);
-            return result;
-        }
-
-        if (is_fifty_move_rule_draw(board) ||
-            is_insufficient_material_draw(board) ||
-            is_threefold_draw(board)) {
-            result.score = VALUE_DRAW;
-            result.stats = ctx.stats;
-            finish_timing(result, start);
-            return result;
-        }
-
-        Score best_score = -VALUE_INF;
-        Score alpha = -VALUE_INF;
-        bool completed_root = true;
-
-        for (Move move : legal_moves) {
-            if (should_stop(ctx)) {
-                completed_root = false;
-                break;
-            }
-
-            Undo undo{};
-            make_move(board, move, undo);
-            Score score = -negamax(board, requested_depth-1, -VALUE_INF, -alpha, 1, ctx);
-            unmake_move(board, undo);
-
+        for (int depth = 1; depth <= requested_depth; ++depth) {
+            SearchResult depth_result = search_root(board, depth, ctx, previous_best);
             if (ctx.stopped) {
-                completed_root = false;
+                if (!result.has_best_move && depth_result.has_best_move) {
+                    result = depth_result;
+                    result.completed_depth = 0;
+                }
                 break;
             }
 
-            if (!result.has_best_move || score > best_score) {
-                best_score = score;
-                result.best_move = move;
-                result.has_best_move = true;
-                result.score = score;
-                result.principal_variation = {move};
-            }
-            if (score>alpha) {
-                alpha = score;
-            }
-        }
-
-        if (completed_root) {
-            result.completed_depth = requested_depth;
+            result = depth_result;
+            previous_best = result.has_best_move ? result.best_move : 0;
             ctx.stats.stop_reason = StopReason::DepthLimit;
         }
 

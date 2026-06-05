@@ -1,10 +1,10 @@
 #ifndef CPP_ENGINE_SEARCH_TYPES_H
 #define CPP_ENGINE_SEARCH_TYPES_H
 #include"rengine/move.h"
+#include"rengine/move_list.h"
 #include<chrono>
 #include<cstdint>
 #include<limits>
-#include<vector>
 
 namespace rengine {
     using Score = int;
@@ -80,7 +80,7 @@ namespace rengine {
         Score score = VALUE_DRAW;
         int completed_depth = 0;
         SearchStats stats;
-        std::vector<Move> principal_variation;
+        MoveList principal_variation;
     };
 
     struct SearchContext {
