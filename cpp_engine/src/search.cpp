@@ -17,13 +17,14 @@ namespace rengine {
         }
 
         bool should_stop(SearchContext& ctx) {
-            if (ctx.stats.nodes>=ctx.limits.node_limit) {
+            const std::uint64_t searched_nodes = ctx.stats.nodes + ctx.stats.qnodes;
+            if (searched_nodes >= ctx.limits.node_limit) {
                 ctx.stopped = true;
                 ctx.stats.stop_reason = StopReason::NodeLimit;
                 return true;
             }
 
-            if ((ctx.stats.nodes % TIME_CHECK_INTERVAL)==0 && Clock::now()>=ctx.deadline) {
+            if ((searched_nodes % TIME_CHECK_INTERVAL)==0 && Clock::now()>=ctx.deadline) {
                 ctx.stopped = true;
                 ctx.stats.stop_reason = StopReason::TimeLimit;
                 return true;
@@ -62,7 +63,7 @@ namespace rengine {
         }
 
         if (depth==0) {
-            return evaluate(board);
+            return qsearch(board, alpha, beta, ply, ctx);
         }
 
         MoveList child_pv;
@@ -184,7 +185,8 @@ namespace rengine {
         ctx.stats.stop_reason = limits.infinite ? StopReason::Infinite : StopReason::DepthLimit;
 
         if (requested_depth == 0) {
-            result.score = evaluate(board);
+            result.score = qsearch(board, -VALUE_INF, VALUE_INF, 0, ctx);
+            result.stats = ctx.stats;
             finish_timing(result, start);
             return result;
         }
@@ -209,5 +211,72 @@ namespace rengine {
         result.stats = ctx.stats;
         finish_timing(result, start);
         return result;
+    }
+    Score qsearch(Board& board, Score alpha, Score beta, int ply, SearchContext& ctx) {
+        if (should_stop(ctx)) {
+            return alpha;
+        }
+        ++ctx.stats.qnodes;
+        ctx.stats.max_ply = std::max(ctx.stats.max_ply, ply);
+
+        MoveList moves_to_search, legal_moves;
+        generate_legal_moves(board, legal_moves);
+
+        const bool king_in_check = in_check(board, board.side_to_move);
+        if (legal_moves.empty()) {
+            return king_in_check ? mated_in(ply) : VALUE_DRAW;
+        }
+
+        if (is_fifty_move_rule_draw(board)) {
+            return VALUE_DRAW;
+        }
+        if (is_insufficient_material_draw(board)) {
+            return VALUE_DRAW;
+        }
+        if (is_threefold_draw(board)) {
+            return VALUE_DRAW;
+        }
+
+        Score best_score = -VALUE_INF;
+        if (king_in_check) {
+            moves_to_search = legal_moves;
+        }
+        else {
+            best_score = evaluate(board);
+            if (best_score >= beta) {
+                return best_score;
+            }
+            if (best_score > alpha) {
+                alpha = best_score;
+            }
+
+            for (auto move : legal_moves) {
+                if (is_promotion(move) || is_capture(move)) {
+                    moves_to_search.push_back(move);
+                }
+            }
+        }
+
+        for (auto move : moves_to_search) {
+            Undo undo{};
+            make_move(board, move, undo);
+            auto sc = -qsearch(board, -beta, -alpha, ply+1, ctx);
+            unmake_move(board, undo);
+
+            if (ctx.stopped) {
+                return alpha;
+            }
+
+            if (sc >= beta) {
+                return sc;
+            }
+            if (sc > alpha) {
+                alpha = sc;
+            }
+            if (sc > best_score) {
+                best_score = sc;
+            }
+        }
+        return best_score;
     }
 }

@@ -2,6 +2,7 @@
 #include"rengine/move_format.h"
 #include"rengine/search.h"
 #include<cassert>
+#include<chrono>
 #include<string>
 
 namespace rengine {
@@ -23,7 +24,7 @@ namespace rengine {
         assert(result.has_best_move);
         assert(result.completed_depth == 1);
         assert(result.stats.nodes == 20);
-        assert(result.stats.qnodes == 0);
+        assert(result.stats.qnodes == 20);
         assert(result.stats.cutoffs == 0);
         assert(result.stats.max_ply == 1);
         assert(result.principal_variation.size() == 1);
@@ -52,6 +53,7 @@ namespace rengine {
         assert(!result.has_best_move);
         assert(result.completed_depth == 0);
         assert(result.stats.nodes == 0);
+        assert(result.stats.qnodes == 1);
         assert(result.score == 900);
     }
 
@@ -73,14 +75,26 @@ namespace rengine {
         Board board = board_from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         SearchLimits limits;
         limits.depth = 1;
-        limits.node_limit = 1;
+        limits.node_limit = 2;
 
         SearchResult result = search_position(board, limits);
 
         assert(result.has_best_move);
         assert(result.completed_depth == 0);
         assert(result.stats.nodes == 1);
+        assert(result.stats.qnodes == 1);
         assert(result.stats.stop_reason == StopReason::NodeLimit);
+    }
+
+    void test_qsearch_terminal_checkmate() {
+        Board board = board_from("7k/5K2/7Q/8/8/8/8/8 b - - 0 1");
+        SearchLimits limits;
+        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false};
+
+        Score score = qsearch(board, -VALUE_INF, VALUE_INF, 0, ctx);
+
+        assert(score == mated_in(0));
+        assert(ctx.stats.qnodes == 1);
     }
 
     void test_terminal_checkmate() {
@@ -125,6 +139,7 @@ int main() {
     rengine::test_static_depth_zero_search();
     rengine::test_depth_two_pv();
     rengine::test_node_limit_is_deterministic();
+    rengine::test_qsearch_terminal_checkmate();
     rengine::test_terminal_checkmate();
     rengine::test_terminal_stalemate();
     rengine::test_fifty_move_draw();
