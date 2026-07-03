@@ -69,6 +69,7 @@ namespace rengine {
         std::uint64_t nodes = 0;
         std::uint64_t qnodes = 0;
         std::uint64_t cutoffs = 0;
+        std::uint64_t first_move_cutoffs = 0;
         std::chrono::nanoseconds elapsed_time{0};
         int max_ply = 0;
         StopReason stop_reason = StopReason::DepthLimit;

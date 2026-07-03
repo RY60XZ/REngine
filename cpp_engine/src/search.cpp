@@ -3,6 +3,7 @@
 #include"rengine/draw.h"
 #include"rengine/eval.h"
 #include"rengine/make_move.h"
+#include"rengine/move_ordering.h"
 #include"rengine/movegen.h"
 #include<algorithm>
 #include<chrono>
@@ -68,7 +69,8 @@ namespace rengine {
 
         MoveList child_pv;
         Score best_score = -VALUE_INF;
-        for (auto move : legal_moves) {
+        for (int move_index = 0; move_index < legal_moves.size(); ++move_index) {
+            Move move = select_best_move(board, legal_moves, move_index);
             child_pv.clear();
             Undo undo{};
             make_move(board, move, undo);
@@ -88,6 +90,9 @@ namespace rengine {
             }
             if (alpha>=beta) {
                 ++ctx.stats.cutoffs;
+                if (move_index == 0) {
+                    ++ctx.stats.first_move_cutoffs;
+                }
                 return alpha;
             }
         }
@@ -149,19 +154,8 @@ namespace rengine {
             return true;
         };
 
-        if (previous_best != 0) {
-            for (Move move : legal_moves) {
-                if (move == previous_best && !search_move(move)) {
-                    result.stats = ctx.stats;
-                    return result;
-                }
-            }
-        }
-
-        for (Move move : legal_moves) {
-            if (move == previous_best) {
-                continue;
-            }
+        for (int move_index = 0; move_index < legal_moves.size(); ++move_index) {
+            Move move = select_best_move(board, legal_moves, move_index, previous_best);
             if (!search_move(move)) {
                 result.stats = ctx.stats;
                 return result;
@@ -251,13 +245,14 @@ namespace rengine {
             }
 
             for (auto move : legal_moves) {
-                if (is_promotion(move) || is_capture(move)) {
+                if (is_noisy_move(move)) {
                     moves_to_search.push_back(move);
                 }
             }
         }
 
-        for (auto move : moves_to_search) {
+        for (int move_index = 0; move_index < moves_to_search.size(); ++move_index) {
+            Move move = select_best_move(board, moves_to_search, move_index);
             Undo undo{};
             make_move(board, move, undo);
             auto sc = -qsearch(board, -beta, -alpha, ply+1, ctx);
@@ -268,6 +263,10 @@ namespace rengine {
             }
 
             if (sc >= beta) {
+                ++ctx.stats.cutoffs;
+                if (move_index == 0) {
+                    ++ctx.stats.first_move_cutoffs;
+                }
                 return sc;
             }
             if (sc > alpha) {

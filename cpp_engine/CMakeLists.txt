@@ -18,6 +18,7 @@ set(RENGINE_CORE_SOURCES
         src/perft.cpp
         src/eval.cpp
         src/search.cpp
+        src/move_ordering.cpp
 )
 
 set(RENGINE_CORE_HEADERS
@@ -29,6 +30,7 @@ set(RENGINE_CORE_HEADERS
         include/rengine/move.h
         include/rengine/move_format.h
         include/rengine/move_list.h
+        include/rengine/move_ordering.h
         include/rengine/movegen.h
         include/rengine/perft.h
         include/rengine/square.h
@@ -86,6 +88,9 @@ target_link_libraries(perft_test PRIVATE rengine_core)
 add_executable(test_move_format tests/test_move_format.cpp)
 target_link_libraries(test_move_format PRIVATE rengine_core)
 
+add_executable(test_move_ordering tests/test_move_ordering.cpp)
+target_link_libraries(test_move_ordering PRIVATE rengine_core)
+
 add_executable(test_eval tests/test_eval.cpp)
 target_link_libraries(test_eval PRIVATE rengine_core)
 
@@ -104,5 +109,6 @@ add_test(NAME movegen COMMAND test_movegen)
 add_test(NAME make_unmake COMMAND test_make_unmake)
 add_test(NAME perft COMMAND perft_test)
 add_test(NAME move_format COMMAND test_move_format)
+add_test(NAME move_ordering COMMAND test_move_ordering)
 add_test(NAME eval COMMAND test_eval)
 add_test(NAME search_smoke COMMAND test_search_smoke)

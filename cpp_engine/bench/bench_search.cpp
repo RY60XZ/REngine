@@ -24,6 +24,12 @@ namespace rengine {
             return static_cast<double>(result.stats.nodes) / seconds;
         }
 
+        double first_move_cutoff_rate(const SearchResult& result) {
+            if (result.stats.cutoffs == 0) return 0.0;
+            return static_cast<double>(result.stats.first_move_cutoffs) /
+                   static_cast<double>(result.stats.cutoffs);
+        }
+
         void print_result(const BenchPosition& position, const SearchResult& result) {
             std::cout << "position: " << position.name << '\n';
             std::cout << "depth: " << result.completed_depth << '\n';
@@ -33,6 +39,9 @@ namespace rengine {
             std::cout << "nodes: " << result.stats.nodes << '\n';
             std::cout << "qnodes: " << result.stats.qnodes << '\n';
             std::cout << "cutoffs: " << result.stats.cutoffs << '\n';
+            std::cout << "first_move_cutoffs: " << result.stats.first_move_cutoffs << '\n';
+            std::cout << "first_move_cutoff_rate: " << std::fixed << std::setprecision(2)
+                      << first_move_cutoff_rate(result) * 100.0 << "%\n";
             std::cout << "time: " << std::fixed << std::setprecision(6)
                       << elapsed_seconds(result) << "s\n";
             std::cout << "nps: " << std::fixed << std::setprecision(2)
