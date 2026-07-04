@@ -19,6 +19,7 @@ set(RENGINE_CORE_SOURCES
         src/eval.cpp
         src/search.cpp
         src/move_ordering.cpp
+        src/zobrist.cpp
 )
 
 set(RENGINE_CORE_HEADERS
@@ -40,6 +41,7 @@ set(RENGINE_CORE_HEADERS
         include/rengine/search_stack.h
         include/rengine/search.h
         include/rengine/draw.h
+        include/rengine/zobrist.h
 )
 
 add_library(rengine_core STATIC
@@ -92,6 +94,9 @@ target_link_libraries(test_move_format PRIVATE rengine_core)
 add_executable(test_move_ordering tests/test_move_ordering.cpp)
 target_link_libraries(test_move_ordering PRIVATE rengine_core)
 
+add_executable(test_zobrist tests/test_zobrist.cpp)
+target_link_libraries(test_zobrist PRIVATE rengine_core)
+
 add_executable(test_eval tests/test_eval.cpp)
 target_link_libraries(test_eval PRIVATE rengine_core)
 
@@ -111,5 +116,6 @@ add_test(NAME make_unmake COMMAND test_make_unmake)
 add_test(NAME perft COMMAND perft_test)
 add_test(NAME move_format COMMAND test_move_format)
 add_test(NAME move_ordering COMMAND test_move_ordering)
+add_test(NAME zobrist COMMAND test_zobrist)
 add_test(NAME eval COMMAND test_eval)
 add_test(NAME search_smoke COMMAND test_search_smoke)

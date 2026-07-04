@@ -18,6 +18,7 @@ namespace rengine{
         board.side_to_move = WHITE;
         board.castling_rights = 0;
         board.en_passant_square = INVALID_SQUARE;
+        board.zobrist_key = 0;
         board.half_move_clock = 0;
         board.full_move_number = 1;
     }

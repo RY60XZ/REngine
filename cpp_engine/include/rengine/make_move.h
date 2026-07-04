@@ -9,6 +9,7 @@ namespace rengine {
         Piece captured_piece;
         unsigned castling_rights;
         Square en_passant_square;
+        ZobristKey zobrist_key;
         int half_move_clock;
         int full_move_number;
     };

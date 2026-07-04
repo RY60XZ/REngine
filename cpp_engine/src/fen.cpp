@@ -1,6 +1,7 @@
 #include "rengine/fen.h"
 #include "rengine/types.h"
 #include "rengine/square.h"
+#include "rengine/zobrist.h"
 #include<cctype>
 
 namespace rengine {
@@ -69,6 +70,8 @@ namespace rengine {
             board.full_move_number = board.full_move_number*10 + (fen[i]-'0');
             ++i;
         }
+
+        update_zobrist_key(board);
     }
 
     std::string board_to_fen(const Board &board) {

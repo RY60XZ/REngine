@@ -5,6 +5,7 @@
 
 namespace rengine {
     using Bitboard = std::uint64_t;
+    using ZobristKey = std::uint64_t;
     using Square = unsigned; //0xFFFFFFFF
     enum Color {WHITE = 0, BLACK =1};
     enum PieceType {

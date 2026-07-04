@@ -135,11 +135,15 @@ namespace rengine {
             return score;
         }
 
-        ++stats->killer_probes;
+        if (stats != nullptr) {
+            ++stats->killer_probes;
+        }
 
         int killer_slot = killer_slot_for_move(stack, ply, move);
         if (killer_slot >= 0) {
-            ++stats->killer_hits;
+            if (stats != nullptr) {
+                ++stats->killer_hits;
+            }
             score += KILLER_MOVE_SCORE - killer_slot * KILLER_SLOT_PENALTY;
         }
 

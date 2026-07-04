@@ -1,6 +1,24 @@
 #include"rengine/make_move.h"
+#include"rengine/square.h"
+#include"rengine/zobrist.h"
 
 namespace rengine {
+    namespace {
+        void xor_piece_key(Board& board, Piece piece, Square square) {
+            board.zobrist_key ^= ZOBRIST_TABLE.piece_square[color_of(piece)][piece_type_of(piece)][square];
+        }
+
+        void xor_en_passant_key(Board& board, Square square) {
+            if (square != INVALID_SQUARE) {
+                board.zobrist_key ^= ZOBRIST_TABLE.en_passant_file[file_of(square)];
+            }
+        }
+
+        void xor_castling_key(Board& board) {
+            board.zobrist_key ^= ZOBRIST_TABLE.castling[board.castling_rights & 0xF];
+        }
+    }
+
     void make_move(Board& board, Move move, Undo& undo) {
         Square from = move_from(move), to = move_to(move);
         MoveFlag flag = move_flag(move);
@@ -9,6 +27,10 @@ namespace rengine {
         Color by = board.side_to_move;
         undo.move = move;
         undo.captured_piece = board.squares[to];
+        undo.zobrist_key = board.zobrist_key;
+        xor_castling_key(board);
+        xor_en_passant_key(board, board.en_passant_square);
+        board.zobrist_key ^= ZOBRIST_TABLE.side_to_move;
         undo.castling_rights = update_castling_rights(board, from, to);
         undo.en_passant_square = board.en_passant_square;
         undo.half_move_clock = board.half_move_clock;
@@ -20,6 +42,8 @@ namespace rengine {
         switch (flag) {
             case QUIET:
             {
+                xor_piece_key(board, from_piece, from);
+                xor_piece_key(board, from_piece, to);
                 Bitboard from_bb = square_bb(from);
                 Bitboard to_bb = square_bb(to);
                 Bitboard move_bb = from_bb | to_bb;
@@ -34,6 +58,10 @@ namespace rengine {
                 break;
             }
             case CAPTURE: {
+                Piece captured_piece = board.squares[to];
+                xor_piece_key(board, from_piece, from);
+                xor_piece_key(board, from_piece, to);
+                xor_piece_key(board, captured_piece, to);
                 board.half_move_clock = 0;
                 Bitboard from_bb = square_bb(from);
                 Bitboard to_bb = square_bb(to);
@@ -55,6 +83,8 @@ namespace rengine {
                 break;
             }
             case DOUBLE_PAWN_PUSH:
+                xor_piece_key(board, from_piece, from);
+                xor_piece_key(board, from_piece, to);
                 set_piece(board, to, from_piece);
                 remove_piece(board, from);
                 if (by == WHITE) {
@@ -65,13 +95,17 @@ namespace rengine {
                 }
                 break;
             case EN_PASSANT:
+                xor_piece_key(board, from_piece, from);
+                xor_piece_key(board, from_piece, to);
                 if (by == WHITE) {
+                    xor_piece_key(board, BLACK_PAWN, to-8);
                     set_piece(board, to, from_piece);
                     remove_piece(board, from);
                     remove_piece(board, to-8);
                     undo.captured_piece = BLACK_PAWN;
                 }
                 else {
+                    xor_piece_key(board, WHITE_PAWN, to+8);
                     set_piece(board, to, from_piece);
                     remove_piece(board, from);
                     remove_piece(board, to+8);
@@ -79,22 +113,32 @@ namespace rengine {
                 }
                 break;
             case CASTLING:
+                xor_piece_key(board, from_piece, from);
+                xor_piece_key(board, from_piece, to);
                 set_piece(board, to, from_piece);
                 remove_piece(board, from);
                 switch (to) {
                     case 2:
+                        xor_piece_key(board, WHITE_ROOK, 0);
+                        xor_piece_key(board, WHITE_ROOK, 3);
                         set_piece(board, 3, WHITE_ROOK);
                         remove_piece(board, 0);
                         break;
                     case 6:
+                        xor_piece_key(board, WHITE_ROOK, 7);
+                        xor_piece_key(board, WHITE_ROOK, 5);
                         set_piece(board, 5, WHITE_ROOK);
                         remove_piece(board, 7);
                         break;
                     case 58:
+                        xor_piece_key(board, BLACK_ROOK, 56);
+                        xor_piece_key(board, BLACK_ROOK, 59);
                         set_piece(board, 59, BLACK_ROOK);
                         remove_piece(board, 56);
                         break;
                     case 62:
+                        xor_piece_key(board, BLACK_ROOK, 63);
+                        xor_piece_key(board, BLACK_ROOK, 61);
                         set_piece(board, 61, BLACK_ROOK);
                         remove_piece(board, 63);
                         break;
@@ -103,15 +147,30 @@ namespace rengine {
                 }
                 break;
             case PROMOTION:
-                set_piece(board, to, static_cast<Piece>(by * 6 + promotion_type + 1));
+            {
+                Piece promoted_piece = static_cast<Piece>(by * 6 + promotion_type + 1);
+                xor_piece_key(board, from_piece, from);
+                xor_piece_key(board, promoted_piece, to);
+                set_piece(board, to, promoted_piece);
                 remove_piece(board, from);
                 break;
+            }
             case PROMOTION_CAPTURE:
+            {
+                Piece captured_piece = board.squares[to];
+                Piece promoted_piece = static_cast<Piece>(by * 6 + promotion_type + 1);
+                xor_piece_key(board, from_piece, from);
+                xor_piece_key(board, captured_piece, to);
+                xor_piece_key(board, promoted_piece, to);
                 remove_piece(board, to);
-                set_piece(board, to, static_cast<Piece>(by * 6 + promotion_type + 1));
+                set_piece(board, to, promoted_piece);
                 remove_piece(board, from);
+                break;
+            }
         }
         if (flag != DOUBLE_PAWN_PUSH) board.en_passant_square = INVALID_SQUARE;
+        xor_castling_key(board);
+        xor_en_passant_key(board, board.en_passant_square);
     }
 
     void unmake_move(Board& board, const Undo& undo) {
@@ -181,6 +240,7 @@ namespace rengine {
 
         board.castling_rights = undo.castling_rights;
         board.en_passant_square = undo.en_passant_square;
+        board.zobrist_key = undo.zobrist_key;
         board.half_move_clock = undo.half_move_clock;
         board.full_move_number = undo.full_move_number;
     }

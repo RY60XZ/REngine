@@ -13,6 +13,7 @@ namespace rengine {
         Color side_to_move = WHITE;
         unsigned castling_rights = 0;
         Square en_passant_square = INVALID_SQUARE;
+        ZobristKey zobrist_key = 0;
         int half_move_clock = 0;
         int full_move_number = 1;
     };
