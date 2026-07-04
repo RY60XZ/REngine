@@ -30,6 +30,12 @@ namespace rengine {
                    static_cast<double>(result.stats.cutoffs);
         }
 
+        double killer_hit_rate(const SearchResult& result) {
+            if (result.stats.killer_probes == 0) return 0.0;
+            return static_cast<double>(result.stats.killer_hits) /
+                   static_cast<double>(result.stats.killer_probes);
+        }
+
         void print_result(const BenchPosition& position, const SearchResult& result) {
             std::cout << "position: " << position.name << '\n';
             std::cout << "depth: " << result.completed_depth << '\n';
@@ -42,6 +48,12 @@ namespace rengine {
             std::cout << "first_move_cutoffs: " << result.stats.first_move_cutoffs << '\n';
             std::cout << "first_move_cutoff_rate: " << std::fixed << std::setprecision(2)
                       << first_move_cutoff_rate(result) * 100.0 << "%\n";
+            std::cout << "killer_probes: " << result.stats.killer_probes << '\n';
+            std::cout << "killer_hits: " << result.stats.killer_hits << '\n';
+            std::cout << "killer_hit_rate: " << std::fixed << std::setprecision(2)
+                      << killer_hit_rate(result) * 100.0 << "%\n";
+            std::cout << "killer_cutoffs: " << result.stats.killer_cutoffs << '\n';
+            std::cout << "history_quiet_cutoffs: " << result.stats.history_quiet_cutoffs << '\n';
             std::cout << "time: " << std::fixed << std::setprecision(6)
                       << elapsed_seconds(result) << "s\n";
             std::cout << "nps: " << std::fixed << std::setprecision(2)

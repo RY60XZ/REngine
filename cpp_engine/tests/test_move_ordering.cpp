@@ -74,17 +74,86 @@ namespace rengine {
         assert(moves[2] == queen_takes_pawn);
     }
 
+    void test_killer_moves_ignore_noisy_moves_and_avoid_duplicates() {
+        SearchStack stack;
+        Move quiet_one = encode_move(parse_square("a1"), parse_square("a2"), QUIET);
+        Move quiet_two = encode_move(parse_square("h1"), parse_square("h2"), QUIET);
+        Move capture = encode_move(parse_square("a1"), parse_square("a7"), CAPTURE);
+
+        assert(!store_killer_move(stack, 4, capture));
+        assert(killer_slot_for_move(stack, 4, capture) == -1);
+        assert(stack.killer_moves[4][0] == 0);
+        assert(stack.killer_moves[4][1] == 0);
+
+        assert(store_killer_move(stack, 4, quiet_one));
+        assert(stack.killer_moves[4][0] == quiet_one);
+        assert(stack.killer_moves[4][1] == 0);
+
+        assert(!store_killer_move(stack, 4, quiet_one));
+        assert(stack.killer_moves[4][0] == quiet_one);
+        assert(stack.killer_moves[4][1] == 0);
+
+        assert(store_killer_move(stack, 4, quiet_two));
+        assert(stack.killer_moves[4][0] == quiet_two);
+        assert(stack.killer_moves[4][1] == quiet_one);
+
+        assert(!store_killer_move(stack, 4, quiet_one));
+        assert(stack.killer_moves[4][0] == quiet_one);
+        assert(stack.killer_moves[4][1] == quiet_two);
+        assert(stack.killer_moves[4][0] != stack.killer_moves[4][1]);
+    }
+
+    void test_history_scores_only_quiet_moves() {
+        SearchStack stack;
+        Move quiet = encode_move(parse_square("a1"), parse_square("a2"), QUIET);
+        Move capture = encode_move(parse_square("a1"), parse_square("a7"), CAPTURE);
+
+        update_history(stack, WHITE, quiet, 4);
+        update_history(stack, WHITE, capture, 10);
+
+        assert(history_score(stack, WHITE, quiet) == 16);
+        assert(history_score(stack, BLACK, quiet) == 0);
+        assert(history_score(stack, WHITE, capture) == 0);
+    }
+
+    void test_killer_orders_above_history_but_below_capture() {
+        Board board = board_from("4k3/p7/5q2/8/4N3/8/8/R3K2R w KQ - 0 1");
+        SearchStack stack;
+        Move history_quiet = encode_move(parse_square("a1"), parse_square("a2"), QUIET);
+        Move killer_quiet = encode_move(parse_square("h1"), parse_square("h2"), QUIET);
+        Move knight_takes_queen = encode_move(parse_square("e4"), parse_square("f6"), CAPTURE);
+
+        update_history(stack, WHITE, history_quiet, MAX_PLY);
+        assert(store_killer_move(stack, 3, killer_quiet));
+
+        assert(move_order_score(board, killer_quiet, stack, 3) >
+               move_order_score(board, history_quiet, stack, 3));
+        assert(move_order_score(board, knight_takes_queen, stack, 3) >
+               move_order_score(board, killer_quiet, stack, 3));
+
+        MoveList moves;
+        moves.push_back(history_quiet);
+        moves.push_back(killer_quiet);
+
+        Move selected = select_best_move(board, moves, 0, stack, 3);
+        assert(selected == killer_quiet);
+    }
+
     void test_ordered_search_restores_board() {
-        Board board = board_from("q6k/8/8/8/8/8/8/R3K3 w - - 0 1");
+        Board board = board_from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         std::string before = board_to_fen(board);
 
         SearchLimits limits;
-        limits.depth = 2;
+        limits.depth = 3;
         SearchResult result = search_position(board, limits);
 
         assert(board_to_fen(board) == before);
         assert(result.has_best_move);
         assert(result.stats.first_move_cutoffs <= result.stats.cutoffs);
+        assert(result.stats.killer_hits <= result.stats.killer_probes);
+        assert(result.stats.killer_cutoffs + result.stats.history_quiet_cutoffs <= result.stats.cutoffs);
+        assert(result.stats.killer_probes > 0);
+        assert(result.stats.killer_cutoffs + result.stats.history_quiet_cutoffs > 0);
     }
 }
 
@@ -93,5 +162,8 @@ int main() {
     rengine::test_promotion_scores_above_quiet_move();
     rengine::test_preferred_move_wins_ties_and_scores();
     rengine::test_select_best_preserves_prior_moves();
+    rengine::test_killer_moves_ignore_noisy_moves_and_avoid_duplicates();
+    rengine::test_history_scores_only_quiet_moves();
+    rengine::test_killer_orders_above_history_but_below_capture();
     rengine::test_ordered_search_restores_board();
 }

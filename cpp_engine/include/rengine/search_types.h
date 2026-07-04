@@ -2,6 +2,7 @@
 #define CPP_ENGINE_SEARCH_TYPES_H
 #include"rengine/move.h"
 #include"rengine/move_list.h"
+#include"rengine/search_stack.h"
 #include<chrono>
 #include<cstdint>
 #include<limits>
@@ -12,7 +13,6 @@ namespace rengine {
     constexpr Score VALUE_DRAW = 0;
     constexpr Score VALUE_MATE = 32000;
     constexpr Score VALUE_INF = 32767;
-    constexpr int MAX_PLY = 256;
     constexpr Score VALUE_MATE_IN_MAX_PLY = VALUE_MATE - MAX_PLY;
     constexpr Score VALUE_MATED_IN_MAX_PLY = -VALUE_MATE + MAX_PLY;
     constexpr std::uint64_t NO_NODE_LIMIT = std::numeric_limits<std::uint64_t>::max();
@@ -70,6 +70,10 @@ namespace rengine {
         std::uint64_t qnodes = 0;
         std::uint64_t cutoffs = 0;
         std::uint64_t first_move_cutoffs = 0;
+        std::uint64_t killer_probes = 0;
+        std::uint64_t killer_hits = 0;
+        std::uint64_t killer_cutoffs = 0;
+        std::uint64_t history_quiet_cutoffs = 0;
         std::chrono::nanoseconds elapsed_time{0};
         int max_ply = 0;
         StopReason stop_reason = StopReason::DepthLimit;
@@ -89,6 +93,7 @@ namespace rengine {
         SearchStats stats;
         std::chrono::steady_clock::time_point deadline;
         bool stopped = false;
+        SearchStack stack;
     };
 
 }

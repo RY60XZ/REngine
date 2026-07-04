@@ -89,7 +89,7 @@ namespace rengine {
     void test_qsearch_terminal_checkmate() {
         Board board = board_from("7k/5K2/7Q/8/8/8/8/8 b - - 0 1");
         SearchLimits limits;
-        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false};
+        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false, {}};
 
         Score score = qsearch(board, -VALUE_INF, VALUE_INF, 0, ctx);
 

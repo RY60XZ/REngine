@@ -33,6 +33,28 @@ namespace rengine {
 
             return false;
         }
+
+        void record_beta_cutoff(SearchContext& ctx, const Board& board, Move move,
+                                int ply, int depth, int move_index) {
+            ++ctx.stats.cutoffs;
+            if (move_index == 0) {
+                ++ctx.stats.first_move_cutoffs;
+            }
+
+            if (!is_quiet_move(move)) {
+                return;
+            }
+
+            if (killer_slot_for_move(ctx.stack, ply, move) >= 0) {
+                ++ctx.stats.killer_cutoffs;
+            }
+            else {
+                ++ctx.stats.history_quiet_cutoffs;
+            }
+
+            store_killer_move(ctx.stack, ply, move);
+            update_history(ctx.stack, board.side_to_move, move, depth);
+        }
     }
 
     Score negamax(Board& board, int depth, Score alpha, Score beta, int ply, SearchContext& ctx, MoveList& pv) {
@@ -70,7 +92,7 @@ namespace rengine {
         MoveList child_pv;
         Score best_score = -VALUE_INF;
         for (int move_index = 0; move_index < legal_moves.size(); ++move_index) {
-            Move move = select_best_move(board, legal_moves, move_index);
+            Move move = select_best_move(board, legal_moves, move_index, ctx.stack, ply, 0, &ctx.stats);
             child_pv.clear();
             Undo undo{};
             make_move(board, move, undo);
@@ -89,10 +111,7 @@ namespace rengine {
                 pv.append(child_pv.begin(), child_pv.end());
             }
             if (alpha>=beta) {
-                ++ctx.stats.cutoffs;
-                if (move_index == 0) {
-                    ++ctx.stats.first_move_cutoffs;
-                }
+                record_beta_cutoff(ctx, board, move, ply, depth, move_index);
                 return alpha;
             }
         }
@@ -155,7 +174,7 @@ namespace rengine {
         };
 
         for (int move_index = 0; move_index < legal_moves.size(); ++move_index) {
-            Move move = select_best_move(board, legal_moves, move_index, previous_best);
+            Move move = select_best_move(board, legal_moves, move_index, ctx.stack, 0, previous_best, &ctx.stats);
             if (!search_move(move)) {
                 result.stats = ctx.stats;
                 return result;
@@ -174,7 +193,7 @@ namespace rengine {
             : Clock::time_point::max();
         const int requested_depth = std::max(0, limits.depth);
 
-        SearchContext ctx{limits, {}, deadline, false};
+        SearchContext ctx{limits, {}, deadline, false, {}};
         SearchResult result;
         ctx.stats.stop_reason = limits.infinite ? StopReason::Infinite : StopReason::DepthLimit;
 
@@ -252,7 +271,7 @@ namespace rengine {
         }
 
         for (int move_index = 0; move_index < moves_to_search.size(); ++move_index) {
-            Move move = select_best_move(board, moves_to_search, move_index);
+            Move move = select_best_move(board, moves_to_search, move_index, ctx.stack, ply, 0, &ctx.stats);
             Undo undo{};
             make_move(board, move, undo);
             auto sc = -qsearch(board, -beta, -alpha, ply+1, ctx);
@@ -263,10 +282,7 @@ namespace rengine {
             }
 
             if (sc >= beta) {
-                ++ctx.stats.cutoffs;
-                if (move_index == 0) {
-                    ++ctx.stats.first_move_cutoffs;
-                }
+                record_beta_cutoff(ctx, board, move, ply, 1, move_index);
                 return sc;
             }
             if (sc > alpha) {
