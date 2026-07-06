@@ -20,6 +20,7 @@ set(RENGINE_CORE_SOURCES
         src/search.cpp
         src/move_ordering.cpp
         src/zobrist.cpp
+        src/tt.cpp
 )
 
 set(RENGINE_CORE_HEADERS
@@ -35,6 +36,7 @@ set(RENGINE_CORE_HEADERS
         include/rengine/movegen.h
         include/rengine/perft.h
         include/rengine/square.h
+        include/rengine/tt.h
         include/rengine/types.h
         include/rengine/eval.h
         include/rengine/search_types.h

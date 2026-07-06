@@ -5,6 +5,7 @@
 #include"rengine/make_move.h"
 #include"rengine/move_ordering.h"
 #include"rengine/movegen.h"
+#include"rengine/tt.h"
 #include<algorithm>
 #include<chrono>
 
@@ -89,10 +90,30 @@ namespace rengine {
             return qsearch(board, alpha, beta, ply, ctx);
         }
 
+        Score alpha_original = alpha;
+        Move hash_move = 0;
+        TTEntry* tt_entry = ctx.tt->probe(board.zobrist_key);
+        if (tt_entry != nullptr) {
+            hash_move = tt_entry->best_move;
+            if (tt_entry->depth >= depth) {
+                Score tt_score = score_from_tt(tt_entry->score, ply);
+                if (tt_entry->flag == TT_EXACT) {
+                    return tt_score;
+                }
+                if (tt_entry->flag == TT_LOWER && tt_score >= beta) {
+                    return tt_score;
+                }
+                if (tt_entry->flag == TT_UPPER && tt_score <= alpha) {
+                    return tt_score;
+                }
+            }
+        }
+
         MoveList child_pv;
         Score best_score = -VALUE_INF;
+        Move best_move = 0;
         for (int move_index = 0; move_index < legal_moves.size(); ++move_index) {
-            Move move = select_best_move(board, legal_moves, move_index, ctx.stack, ply, 0, &ctx.stats);
+            Move move = select_best_move(board, legal_moves, move_index, ctx.stack, ply, hash_move, &ctx.stats);
             child_pv.clear();
             Undo undo{};
             make_move(board, move, undo);
@@ -103,19 +124,28 @@ namespace rengine {
                 return alpha; //placeholder value since this value should never be used
             }
 
-            best_score = std::max(best_score, current_score);
-            if (best_score > alpha) {
-                alpha = best_score;
+            if (current_score > best_score) {
+                best_score = current_score;
+                best_move = move;
+            }
+            if (current_score > alpha) {
+                alpha = current_score;
                 pv.clear();
                 pv.push_back(move);
                 pv.append(child_pv.begin(), child_pv.end());
             }
             if (alpha>=beta) {
                 record_beta_cutoff(ctx, board, move, ply, depth, move_index);
+                ctx.tt->store(board.zobrist_key, depth, score_to_tt(alpha, ply), TT_LOWER, move);
                 return alpha;
             }
         }
 
+        TTFlag flag = TT_EXACT;
+        if (best_score <= alpha_original) {
+            flag = TT_UPPER;
+        }
+        ctx.tt->store(board.zobrist_key, depth, score_to_tt(best_score, ply), flag, best_move);
         return best_score;
     }
 
@@ -142,6 +172,11 @@ namespace rengine {
 
         Score best_score = -VALUE_INF;
         Score alpha = -VALUE_INF;
+        Move preferred_move = previous_best;
+        TTEntry* tt_entry = ctx.tt->probe(board.zobrist_key);
+        if (tt_entry != nullptr && tt_entry->best_move != 0) {
+            preferred_move = tt_entry->best_move;
+        }
 
         auto search_move = [&](Move move) {
             if (should_stop(ctx)) {
@@ -174,13 +209,16 @@ namespace rengine {
         };
 
         for (int move_index = 0; move_index < legal_moves.size(); ++move_index) {
-            Move move = select_best_move(board, legal_moves, move_index, ctx.stack, 0, previous_best, &ctx.stats);
+            Move move = select_best_move(board, legal_moves, move_index, ctx.stack, 0, preferred_move, &ctx.stats);
             if (!search_move(move)) {
                 result.stats = ctx.stats;
                 return result;
             }
         }
 
+        if (result.has_best_move) {
+            ctx.tt->store(board.zobrist_key, depth, score_to_tt(result.score, 0), TT_EXACT, result.best_move);
+        }
         result.completed_depth = depth;
         result.stats = ctx.stats;
         return result;
@@ -192,8 +230,9 @@ namespace rengine {
             ? start + limits.movetime
             : Clock::time_point::max();
         const int requested_depth = std::max(0, limits.depth);
-
-        SearchContext ctx{limits, {}, deadline, false, {}};
+        static TranspositionTable tt(1 << 21);
+        tt.advance_age();
+        SearchContext ctx{limits, {}, deadline, false, {}, &tt};
         SearchResult result;
         ctx.stats.stop_reason = limits.infinite ? StopReason::Infinite : StopReason::DepthLimit;
 

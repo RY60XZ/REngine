@@ -8,6 +8,8 @@
 #include<limits>
 
 namespace rengine {
+    class TranspositionTable;
+
     using Score = int;
 
     constexpr Score VALUE_DRAW = 0;
@@ -94,6 +96,7 @@ namespace rengine {
         std::chrono::steady_clock::time_point deadline;
         bool stopped = false;
         SearchStack stack;
+        TranspositionTable* tt = nullptr;
     };
 
 }
