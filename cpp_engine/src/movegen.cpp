@@ -32,57 +32,57 @@ namespace rengine {
             }
             return false;
         }
+    }
+        bool has_any_legal_move(Board& board) {
+        Color us = board.side_to_move;
+        MoveList move_list;
 
-        bool has_any_legal_move(Board& board, Color us) {
-            MoveList move_list;
+        generate_pawn_single_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            generate_pawn_single_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_pawn_double_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_pawn_double_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_pawn_capture_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_pawn_capture_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_knight_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_knight_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_king_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_king_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_bishop_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_bishop_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_rook_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_rook_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_queen_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_queen_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_pawn_promotion_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_pawn_promotion_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_pawn_capture_promotion_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_pawn_capture_promotion_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
+        move_list.clear();
+        generate_pawn_en_passant_moves(board, move_list, us);
+        if (has_legal_move_in(board, move_list, 0, us)) return true;
 
-            move_list.clear();
-            generate_pawn_en_passant_moves(board, move_list, us);
-            if (has_legal_move_in(board, move_list, 0, us)) return true;
-
-            move_list.clear();
-            generate_castling_moves(board, move_list, us);
-            return has_legal_move_in(board, move_list, 0, us);
-        }
+        move_list.clear();
+        generate_castling_moves(board, move_list, us);
+        return has_legal_move_in(board, move_list, 0, us);
     }
 
     void generate_knight_moves(const Board& board, MoveList& move_list, Color by) {
@@ -462,15 +462,13 @@ namespace rengine {
         }
     }
 
-    void generate_qsearch_pseudo_legal_moves(Board &board, MoveList &move_list, bool& has_legal_moves) {
+    void generate_qsearch_pseudo_legal_moves(Board &board, MoveList &move_list) {
         Color us = board.side_to_move;
         if (in_check(board, us)) {
             generate_legal_moves(board, move_list);
-            has_legal_moves = !move_list.empty();
             return;
         }
 
-        has_legal_moves = has_any_legal_move(board, us);
         move_list.clear();
         generate_knight_capture_moves(board, move_list, us);
         generate_bishop_capture_moves(board, move_list, us);

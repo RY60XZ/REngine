@@ -27,9 +27,9 @@ namespace rengine {
     void generate_bishop_capture_moves(const Board& board, MoveList& move_list, Color by);
     void generate_rook_capture_moves(const Board& board, MoveList& move_list, Color by);
     void generate_queen_capture_moves(const Board& board, MoveList& move_list, Color by);
-    void generate_qsearch_pseudo_legal_moves(Board& board, MoveList& move_list, bool& has_legal_moves);
     void generate_qsearch_pseudo_legal_moves(Board& board, MoveList& move_list);
 
+    bool has_any_legal_move(Board& board);
     void generate_legal_moves(Board& board, MoveList& legal_move_list);
 
     inline Square pop_lsb(Bitboard& bb) {

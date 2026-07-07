@@ -147,11 +147,9 @@ namespace rengine {
     void test_qsearch_promotions() {
         Board board = board_from("1n5k/P7/8/8/8/8/8/4K3 w - - 0 1");
         MoveList move_list;
-        bool has_legal_moves = false;
 
-        generate_qsearch_pseudo_legal_moves(board, move_list, has_legal_moves);
+        generate_qsearch_pseudo_legal_moves(board, move_list);
 
-        assert(has_legal_moves);
         assert(count_flag(move_list, PROMOTION) == 4);
         assert(count_flag(move_list, PROMOTION_CAPTURE) == 4);
         for (int pt = KNIGHT; pt <= QUEEN; ++pt) {
@@ -164,29 +162,27 @@ namespace rengine {
     void test_qsearch_legal_move_probe() {
         Board board = board_from("4k3/8/8/8/8/8/8/4KQ2 w - - 0 1");
         MoveList move_list;
-        bool has_legal_moves = false;
 
-        generate_qsearch_pseudo_legal_moves(board, move_list, has_legal_moves);
+        generate_qsearch_pseudo_legal_moves(board, move_list);
 
-        assert(has_legal_moves);
+        assert(has_any_legal_move(board));
         assert(move_list.empty());
 
         board = board_from("7k/p4K2/6Q1/8/8/8/8/8 b - - 0 1");
         move_list.clear();
-        has_legal_moves = false;
 
-        generate_qsearch_pseudo_legal_moves(board, move_list, has_legal_moves);
+        generate_qsearch_pseudo_legal_moves(board, move_list);
 
-        assert(has_legal_moves);
+        assert(has_any_legal_move(board));
         assert(move_list.empty());
 
         board = board_from("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1");
         move_list.clear();
-        has_legal_moves = true;
 
-        generate_qsearch_pseudo_legal_moves(board, move_list, has_legal_moves);
+        generate_qsearch_pseudo_legal_moves(board, move_list);
 
-        assert(!has_legal_moves);
+        assert(!has_any_legal_move(board));
+        assert(move_list.empty());
     }
 
     void test_pawn_en_passant() {
