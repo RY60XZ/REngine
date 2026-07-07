@@ -23,15 +23,29 @@ namespace rengine {
 
     void test_side_to_move_perspective() {
         Board white_to_move = board_from("4k3/8/8/8/8/8/8/4KQ2 w - - 0 1");
-        assert(evaluate(white_to_move) == 900);
+        assert(evaluate(white_to_move) == 890);
 
         Board black_to_move = board_from("4k3/8/8/8/8/8/8/4KQ2 b - - 0 1");
-        assert(evaluate(black_to_move) == -900);
+        assert(evaluate(black_to_move) == -890);
     }
 
     void test_material_values() {
         Board board = board_from("2rbk3/8/8/8/8/8/8/4KQN1 w - - 0 1");
-        assert(evaluate(board) == 390);
+        assert(evaluate(board) == 350);
+    }
+
+    void test_piece_square_values() {
+        Board center_knight = board_from("4k3/8/8/8/3N4/8/8/4K3 w - - 0 1");
+        Board rim_knight = board_from("4k3/8/8/8/8/8/8/N3K3 w - - 0 1");
+        assert(evaluate(center_knight) > evaluate(rim_knight));
+
+        Board advanced_pawn = board_from("4k3/8/4P3/8/8/8/8/4K3 w - - 0 1");
+        Board home_pawn = board_from("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1");
+        assert(evaluate(advanced_pawn) > evaluate(home_pawn));
+
+        Board black_center_knight = board_from("4k3/8/8/3n4/8/8/8/4K3 w - - 0 1");
+        Board black_rim_knight = board_from("4k2n/8/8/8/8/8/8/4K3 w - - 0 1");
+        assert(evaluate(black_center_knight) < evaluate(black_rim_knight));
     }
 
     void test_fen_round_trip_preserves_eval() {
@@ -71,6 +85,7 @@ int main() {
     rengine::test_zero_material();
     rengine::test_side_to_move_perspective();
     rengine::test_material_values();
+    rengine::test_piece_square_values();
     rengine::test_fen_round_trip_preserves_eval();
     rengine::test_evaluate_does_not_mutate_board();
     rengine::test_mate_score_helpers();
