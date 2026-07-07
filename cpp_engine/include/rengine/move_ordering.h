@@ -5,9 +5,11 @@
 #include"rengine/move.h"
 #include"rengine/move_list.h"
 #include"rengine/search_types.h"
+#include<array>
 
 namespace rengine {
     using MoveScore = int;
+    using MoveScoreList = std::array<MoveScore, MAX_MOVES>;
 
     constexpr MoveScore QUIET_MOVE_SCORE = 0;
 
@@ -15,6 +17,12 @@ namespace rengine {
     MoveScore move_order_score(const Board& board, Move move, Move preferred_move = 0);
     MoveScore move_order_score(const Board& board, Move move, const SearchStack& stack,
                                int ply, Move preferred_move = 0, SearchStats* stats = nullptr);
+    void score_moves(const Board& board, const MoveList& moves, MoveScoreList& scores,
+                     Move preferred_move = 0);
+    void score_moves(const Board& board, const MoveList& moves, MoveScoreList& scores,
+                     const SearchStack& stack, int ply, Move preferred_move = 0,
+                     SearchStats* stats = nullptr);
+    Move select_best_move(MoveList& moves, MoveScoreList& scores, int start_index);
     Move select_best_move(const Board& board, MoveList& moves, int start_index, Move preferred_move = 0);
     Move select_best_move(const Board& board, MoveList& moves, int start_index,
                           const SearchStack& stack, int ply, Move preferred_move = 0,

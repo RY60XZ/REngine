@@ -116,12 +116,14 @@ namespace rengine {
 
         MoveList pseudo_legal_moves;
         generate_pseudo_legal_moves(board, pseudo_legal_moves);
+        MoveScoreList move_scores;
+        score_moves(board, pseudo_legal_moves, move_scores, ctx.stack, ply, hash_move, &ctx.stats);
 
         MoveList child_pv;
         Score best_score = -VALUE_INF;
         Move best_move = 0;
         for (int move_index = 0; move_index < pseudo_legal_moves.size(); ++move_index) {
-            Move move = select_best_move(board, pseudo_legal_moves, move_index, ctx.stack, ply, hash_move, &ctx.stats);
+            Move move = select_best_move(pseudo_legal_moves, move_scores, move_index);
             Undo undo{};
             make_move(board, move, undo);
             if (in_check(board, us)) {
@@ -196,6 +198,8 @@ namespace rengine {
         if (tt_entry != nullptr && tt_entry->best_move != 0) {
             preferred_move = tt_entry->best_move;
         }
+        MoveScoreList move_scores;
+        score_moves(board, legal_moves, move_scores, ctx.stack, 0, preferred_move, &ctx.stats);
 
         auto search_move = [&](Move move) {
             if (should_stop(ctx)) {
@@ -228,7 +232,7 @@ namespace rengine {
         };
 
         for (int move_index = 0; move_index < legal_moves.size(); ++move_index) {
-            Move move = select_best_move(board, legal_moves, move_index, ctx.stack, 0, preferred_move, &ctx.stats);
+            Move move = select_best_move(legal_moves, move_scores, move_index);
             if (!search_move(move)) {
                 result.stats = ctx.stats;
                 return result;
@@ -328,10 +332,12 @@ namespace rengine {
 
             generate_qsearch_pseudo_legal_moves(board, qsearch_pseudo_legal_moves);
         }
+        MoveScoreList move_scores;
+        score_moves(board, qsearch_pseudo_legal_moves, move_scores, ctx.stack, ply, 0, &ctx.stats);
 
         bool found_legal_moves = king_in_check;
         for (int move_index = 0; move_index < qsearch_pseudo_legal_moves.size(); ++move_index) {
-            Move move = select_best_move(board, qsearch_pseudo_legal_moves, move_index, ctx.stack, ply, 0, &ctx.stats);
+            Move move = select_best_move(qsearch_pseudo_legal_moves, move_scores, move_index);
             Undo undo{};
             make_move(board, move, undo);
             if (!king_in_check && in_check(board, us)) {

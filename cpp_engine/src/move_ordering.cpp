@@ -151,13 +151,28 @@ namespace rengine {
         return score;
     }
 
-    Move select_best_move(const Board& board, MoveList& moves, int start_index, Move preferred_move) {
+    void score_moves(const Board& board, const MoveList& moves, MoveScoreList& scores,
+                     Move preferred_move) {
+        for (int index = 0; index < moves.size(); ++index) {
+            scores[index] = move_order_score(board, moves[index], preferred_move);
+        }
+    }
+
+    void score_moves(const Board& board, const MoveList& moves, MoveScoreList& scores,
+                     const SearchStack& stack, int ply, Move preferred_move,
+                     SearchStats* stats) {
+        for (int index = 0; index < moves.size(); ++index) {
+            scores[index] = move_order_score(board, moves[index], stack, ply, preferred_move, stats);
+        }
+    }
+
+    Move select_best_move(MoveList& moves, MoveScoreList& scores, int start_index) {
         assert(start_index >= 0 && start_index < moves.size());
 
         int best_index = start_index;
-        MoveScore best_score = move_order_score(board, moves[start_index], preferred_move);
+        MoveScore best_score = scores[start_index];
         for (int index = start_index + 1; index < moves.size(); ++index) {
-            MoveScore score = move_order_score(board, moves[index], preferred_move);
+            MoveScore score = scores[index];
             if (score > best_score) {
                 best_score = score;
                 best_index = index;
@@ -166,8 +181,17 @@ namespace rengine {
 
         if (best_index != start_index) {
             std::swap(moves.moves[start_index], moves.moves[best_index]);
+            std::swap(scores[start_index], scores[best_index]);
         }
         return moves[start_index];
+    }
+
+    Move select_best_move(const Board& board, MoveList& moves, int start_index, Move preferred_move) {
+        assert(start_index >= 0 && start_index < moves.size());
+
+        MoveScoreList scores;
+        score_moves(board, moves, scores, preferred_move);
+        return select_best_move(moves, scores, start_index);
     }
 
     Move select_best_move(const Board& board, MoveList& moves, int start_index,
@@ -175,19 +199,8 @@ namespace rengine {
                           SearchStats* stats) {
         assert(start_index >= 0 && start_index < moves.size());
 
-        int best_index = start_index;
-        MoveScore best_score = move_order_score(board, moves[start_index], stack, ply, preferred_move, stats);
-        for (int index = start_index + 1; index < moves.size(); ++index) {
-            MoveScore score = move_order_score(board, moves[index], stack, ply, preferred_move, stats);
-            if (score > best_score) {
-                best_score = score;
-                best_index = index;
-            }
-        }
-
-        if (best_index != start_index) {
-            std::swap(moves.moves[start_index], moves.moves[best_index]);
-        }
-        return moves[start_index];
+        MoveScoreList scores;
+        score_moves(board, moves, scores, stack, ply, preferred_move, stats);
+        return select_best_move(moves, scores, start_index);
     }
 }

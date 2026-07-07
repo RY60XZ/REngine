@@ -74,6 +74,37 @@ namespace rengine {
         assert(moves[2] == queen_takes_pawn);
     }
 
+    void test_scored_selection_counts_killer_stats_once() {
+        Board board = board_from("4k3/p7/5q2/8/4N3/8/8/R3K2R w KQ - 0 1");
+        SearchStack stack;
+        SearchStats stats;
+        Move quiet_one = encode_move(parse_square("a1"), parse_square("a2"), QUIET);
+        Move quiet_two = encode_move(parse_square("h1"), parse_square("h2"), QUIET);
+        Move knight_takes_queen = encode_move(parse_square("e4"), parse_square("f6"), CAPTURE);
+
+        assert(store_killer_move(stack, 3, quiet_two));
+
+        MoveList moves;
+        moves.push_back(quiet_one);
+        moves.push_back(quiet_two);
+        moves.push_back(knight_takes_queen);
+
+        MoveScoreList scores{};
+        score_moves(board, moves, scores, stack, 3, 0, &stats);
+        assert(stats.killer_probes == 2);
+        assert(stats.killer_hits == 1);
+
+        Move selected = select_best_move(moves, scores, 0);
+        assert(selected == knight_takes_queen);
+        assert(stats.killer_probes == 2);
+        assert(stats.killer_hits == 1);
+
+        selected = select_best_move(moves, scores, 1);
+        assert(selected == quiet_two);
+        assert(stats.killer_probes == 2);
+        assert(stats.killer_hits == 1);
+    }
+
     void test_killer_moves_ignore_noisy_moves_and_avoid_duplicates() {
         SearchStack stack;
         Move quiet_one = encode_move(parse_square("a1"), parse_square("a2"), QUIET);
@@ -162,6 +193,7 @@ int main() {
     rengine::test_promotion_scores_above_quiet_move();
     rengine::test_preferred_move_wins_ties_and_scores();
     rengine::test_select_best_preserves_prior_moves();
+    rengine::test_scored_selection_counts_killer_stats_once();
     rengine::test_killer_moves_ignore_noisy_moves_and_avoid_duplicates();
     rengine::test_history_scores_only_quiet_moves();
     rengine::test_killer_orders_above_history_but_below_capture();
