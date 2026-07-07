@@ -7,6 +7,7 @@
 #include"rengine/movegen.h"
 #include"rengine/tt.h"
 #include<algorithm>
+#include<atomic>
 #include<chrono>
 
 namespace rengine {
@@ -19,6 +20,12 @@ namespace rengine {
         }
 
         bool should_stop(SearchContext& ctx) {
+            if (ctx.limits.stop != nullptr && ctx.limits.stop->load(std::memory_order_relaxed)) {
+                ctx.stopped = true;
+                ctx.stats.stop_reason = StopReason::Stopped;
+                return true;
+            }
+
             const std::uint64_t searched_nodes = ctx.stats.nodes + ctx.stats.qnodes;
             if (searched_nodes >= ctx.limits.node_limit) {
                 ctx.stopped = true;
@@ -33,6 +40,11 @@ namespace rengine {
             }
 
             return false;
+        }
+
+        TranspositionTable& shared_tt() {
+            static TranspositionTable tt(1 << 21);
+            return tt;
         }
 
         void record_beta_cutoff(SearchContext& ctx, const Board& board, Move move,
@@ -56,6 +68,10 @@ namespace rengine {
             store_killer_move(ctx.stack, ply, move);
             update_history(ctx.stack, board.side_to_move, move, depth);
         }
+    }
+
+    void clear_search_tables() {
+        shared_tt().clear();
     }
 
     Score negamax(Board& board, int depth, Score alpha, Score beta, int ply, SearchContext& ctx, MoveList& pv) {
@@ -233,7 +249,7 @@ namespace rengine {
             ? start + limits.movetime
             : Clock::time_point::max();
         const int requested_depth = std::max(0, limits.depth);
-        static TranspositionTable tt(1 << 21);
+        TranspositionTable& tt = shared_tt();
         tt.advance_age();
         SearchContext ctx{limits, {}, deadline, false, {}, &tt};
         SearchResult result;
@@ -243,6 +259,9 @@ namespace rengine {
             result.score = qsearch(board, -VALUE_INF, VALUE_INF, 0, ctx);
             result.stats = ctx.stats;
             finish_timing(result, start);
+            if (limits.info_callback) {
+                limits.info_callback(result);
+            }
             return result;
         }
 
@@ -260,6 +279,11 @@ namespace rengine {
 
             result = depth_result;
             previous_best = result.has_best_move ? result.best_move : 0;
+            result.stats = ctx.stats;
+            finish_timing(result, start);
+            if (limits.info_callback) {
+                limits.info_callback(result);
+            }
             if (ctx.stats.stop_reason == StopReason::NoLegalMoves) {
                 break;
             }

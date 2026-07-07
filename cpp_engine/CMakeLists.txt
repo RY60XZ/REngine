@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.23)
 project(cpp_engine LANGUAGES CXX)
+find_package(Threads REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +22,8 @@ set(RENGINE_CORE_SOURCES
         src/move_ordering.cpp
         src/zobrist.cpp
         src/tt.cpp
+        src/time.cpp
+        src/uci.cpp
 )
 
 set(RENGINE_CORE_HEADERS
@@ -44,6 +47,8 @@ set(RENGINE_CORE_HEADERS
         include/rengine/search.h
         include/rengine/draw.h
         include/rengine/zobrist.h
+        include/rengine/time.h
+        include/rengine/uci.h
 )
 
 add_library(rengine_core STATIC
@@ -71,6 +76,11 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src
 target_include_directories(rengine_core
         PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(rengine_core
+        PUBLIC
+        Threads::Threads
 )
 
 target_compile_options(rengine_core
@@ -105,6 +115,9 @@ target_link_libraries(test_eval PRIVATE rengine_core)
 add_executable(test_search_smoke tests/test_search_smoke.cpp)
 target_link_libraries(test_search_smoke PRIVATE rengine_core)
 
+add_executable(test_uci tests/test_uci.cpp)
+target_link_libraries(test_uci PRIVATE rengine_core)
+
 add_executable(bench_perft bench/bench_perft.cpp)
 target_link_libraries(bench_perft PRIVATE rengine_core)
 
@@ -121,3 +134,4 @@ add_test(NAME move_ordering COMMAND test_move_ordering)
 add_test(NAME zobrist COMMAND test_zobrist)
 add_test(NAME eval COMMAND test_eval)
 add_test(NAME search_smoke COMMAND test_search_smoke)
+add_test(NAME uci COMMAND test_uci)

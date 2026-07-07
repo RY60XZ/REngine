@@ -1,6 +1,7 @@
 #include"rengine/fen.h"
 #include"rengine/move_format.h"
 #include"rengine/search.h"
+#include"rengine/uci.h"
 #include<chrono>
 #include<cstdint>
 #include<iostream>
@@ -20,7 +21,8 @@ namespace {
 
     void print_usage(const char* program) {
         std::cout
-            << "usage: " << program << " [--fen FEN] [--depth N] [--nodes N] [--movetime MS] [--infinite]\n"
+            << "usage: " << program << " [--uci]\n"
+            << "       " << program << " [--fen FEN] [--depth N] [--nodes N] [--movetime MS] [--infinite]\n"
             << "example: " << program << " --fen \"" << STARTPOS_FEN << "\" --depth 1\n";
     }
 
@@ -71,6 +73,10 @@ namespace {
 }
 
 int main(int argc, char** argv) {
+    if (argc == 1 || (argc == 2 && std::string(argv[1]) == "--uci")) {
+        return rengine::run_uci_loop(std::cin, std::cout);
+    }
+
     CliOptions options;
     if (!parse_options(argc, argv, options)) {
         return argc == 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h") ? 0 : 1;

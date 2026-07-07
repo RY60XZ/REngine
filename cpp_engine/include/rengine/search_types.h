@@ -3,8 +3,10 @@
 #include"rengine/move.h"
 #include"rengine/move_list.h"
 #include"rengine/search_stack.h"
+#include<atomic>
 #include<chrono>
 #include<cstdint>
+#include<functional>
 #include<limits>
 
 namespace rengine {
@@ -23,6 +25,7 @@ namespace rengine {
         DepthLimit,
         NodeLimit,
         TimeLimit,
+        Stopped,
         Infinite,
         NoLegalMoves,
     };
@@ -60,11 +63,17 @@ namespace rengine {
         return score;
     }
 
+    struct SearchResult;
+
+    using SearchInfoCallback = std::function<void(const SearchResult&)>;
+
     struct SearchLimits {
         int depth = 1;
         std::uint64_t node_limit = NO_NODE_LIMIT;
         std::chrono::milliseconds movetime{0};
         bool infinite = false;
+        std::atomic_bool* stop = nullptr;
+        SearchInfoCallback info_callback;
     };
 
     struct SearchStats {

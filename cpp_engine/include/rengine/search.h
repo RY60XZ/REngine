@@ -6,6 +6,7 @@
 
 namespace rengine {
     SearchResult search_position(Board& board, const SearchLimits& limits);
+    void clear_search_tables();
     Score negamax(Board& board, int depth, Score alpha, Score beta, int ply, SearchContext& ctx, MoveList& pv);
     SearchResult search_root(Board& board, int depth, SearchContext& ctx, Move previous_best);
     Score qsearch(Board& board, Score alpha, Score beta, int ply, SearchContext& ctx);
