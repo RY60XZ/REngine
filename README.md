@@ -1,23 +1,39 @@
 # REngine
-A from-scratch chess engine written in C++, aiming for a strong neural-network-based evaluation (NNUE or AlphaZero-style)
+A from-scratch chess engine written in C++, aiming for a strong neural-network-based NNUE-style evaluation.
 
 ## Motivation
 This project started as a Python chess engine using `python-chess`. After building out alpha-beta search and basic evaluation, I ran into a wall: `python-chess` topped out at ~1-2M nodes/sec on my hardware, which made anything beyond shallow search painfully slow. Even with a half-decent search algorithm, the engine couldn't see deep enough to play coherently.
 
 So I rewrote the engine in C++ from scratch, with two goals:
 1. Make move generation fast enough that search depth is bounded by the search algorithm's intelligence, not by raw speed.
-2. Build a foundation capable of supporting modern neural-network-based evaluation (NNUE or AlphaZero-style) in later phases.
+2. Build a foundation capable of supporting modern neural-network-based evaluation in later phases.
 
 ## Current Status
-- ✅ Legal move generation, optimized with bitboard implementations
-- 🚧 Search Skeleton (alpha-beta with iterative deepening)
-- ⬜ Aggressive Search Pruning
-- ⬜ Evaluation function
-- ⬜ Neural network integration
+
+## Done
+- Bitboard board representation with one bitboard per piece type and color
+- Magic-bitboard sliding attacks for bishops, rooks, and queens
+- Precomputed attack tables for non-sliding pieces
+- Legal and pseudo-legal move generation
+- Perft tests for move-generation correctness
+- Alpha-beta negamax search with iterative deepening
+- Quiescence search with qnode accounting
+- Move ordering using captures/promotions, hash move, killer moves, and history heuristic
+- Zobrist hashing and fixed-size transposition table
+- Mate-distance-aware score storage for TT entries
+- Basic material plus piece-square-table evaluation
+- CLI search runner with depth, node, movetime, and FEN options
+
+## In Progress / Planned
+- Stronger pruning: null-move pruning, late move reductions, futility pruning, and check extensions
+- Static exchange evaluation for capture ordering and pruning support
+- Aspiration windows around iterative-deepening scores
+- Better time management and UCI protocol support
+- Stronger evaluation, eventually NNUE-style and/or Stockfish-distilled
+- Parallel search and lockless transposition-table experiments
 
 ## Build
-
-The C++ engine lives in `cpp_engine/` and uses CMake.
+The C++ engine lives in `cpp_engine/` and uses CMake. Use a Release build for meaningful search and perft numbers.
 
 ```sh
 cd cpp_engine
@@ -31,20 +47,29 @@ Useful targets:
 cmake --build cmake-build-release --target cpp_engine
 cmake --build cmake-build-release --target test_movegen
 cmake --build cmake-build-release --target test_make_unmake
+cmake --build cmake-build-release --target test_search_smoke
 cmake --build cmake-build-release --target perft_test
 cmake --build cmake-build-release --target bench_perft
+cmake --build cmake-build-release --target bench_search
 ```
 
-Run the tests and benchmark:
+Run the full test suite:
 
 ```sh
-./cmake-build-release/test_movegen
-./cmake-build-release/test_make_unmake
-./cmake-build-release/perft_test
-./cmake-build-release/bench_perft
+ctest --test-dir cmake-build-release --output-on-failure
 ```
 
-`bench_perft` is intended to be run optimized. The CMake target adds `-O3` and `NDEBUG`, but using a Release build directory keeps the rest of the engine consistent too.
+Run a search from the starting position:
+
+```sh
+cmake-build-release/cpp_engine --depth 10
+```
+
+Run a search from a FEN:
+
+```sh
+cmake-build-release/cpp_engine --depth 10 --fen "3r1rk1/pp2q2p/1n1b3Q/5p2/Pp1Bp3/4P2P/5P2/2RR2K1 b - - 2 29"
+```
 
 ## Performance
 
@@ -60,6 +85,16 @@ All node counts match canonical published values.
 | en passant pressure | 5 | 674,624 | 0.009s | 72.6M |
 | promotion pressure | 4 | 2,103,487 | 0.058s | 36.1M |
 
+### Search speed from startpos
+
+Measured with `cmake-build-release/cpp_engine --depth N` from the standard starting position. NPS counts total searched nodes (`nodes + qnodes`).
+
+| Depth | Best move | Score | Nodes | QNodes | Total nodes | Time | NPS |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 8 | b1c3 | 0 | 544,783 | 679,458 | 1,224,241 | 0.148s | 8.25M |
+| 9 | b1c3 | 20 | 2,873,311 | 3,287,862 | 6,161,173 | 0.644s | 9.56M |
+| 10 | e2e4 | 10 | 18,423,917 | 23,116,119 | 41,540,036 | 4.962s | 8.37M |
+
 ### Comparison vs python-chess (same M4 hardware, same workload)
 
 | Test | python-chess | This engine | Speedup |
@@ -70,11 +105,3 @@ All node counts match canonical published values.
 | en passant pressure depth 5 | 0.559s (1.21M nps) | 0.009s (72.6M nps) | **62x** |
 | promotion pressure depth 4 | 1.214s (1.73M nps) | 0.058s (36.1M nps) | **21x** |
 
-
-## Architecture
-
-### Movegen
-1. 64-bit bitboard representation (one bitboard per piece type per color)
-2. Magic bitboards (specially designed hashing) for sliding piece attacks (rook, bishop, queen)
-3. Precomputed attack tables
-4. Make/unmake with incremental state updates
