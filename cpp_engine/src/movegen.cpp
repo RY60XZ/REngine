@@ -18,6 +18,71 @@ namespace rengine {
                 move_list.push_back(move);
             }
         }
+
+        bool has_legal_move_in(Board& board, const MoveList& move_list, int start_index, Color us) {
+            Undo undo{};
+            for (int move_index = start_index; move_index < move_list.size(); ++move_index) {
+                Move move = move_list[move_index];
+                make_move(board, move, undo);
+                const bool legal = !in_check(board, us);
+                unmake_move(board, undo);
+                if (legal) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool has_any_legal_move(Board& board, Color us) {
+            MoveList move_list;
+
+            generate_pawn_single_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_pawn_double_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_pawn_capture_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_knight_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_king_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_bishop_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_rook_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_queen_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_pawn_promotion_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_pawn_capture_promotion_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_pawn_en_passant_moves(board, move_list, us);
+            if (has_legal_move_in(board, move_list, 0, us)) return true;
+
+            move_list.clear();
+            generate_castling_moves(board, move_list, us);
+            return has_legal_move_in(board, move_list, 0, us);
+        }
     }
 
     void generate_knight_moves(const Board& board, MoveList& move_list, Color by) {
@@ -30,6 +95,19 @@ namespace rengine {
                 MoveFlag flag = ((square_bb(to)) & board.occupied[opposite_color(by)])?
                                 CAPTURE : QUIET;
                 Move move = encode_move(from, to, flag);
+                move_list.push_back(move);
+            }
+        }
+    }
+
+    void generate_knight_capture_moves(const Board &board, MoveList &move_list, Color by) {
+        Bitboard knights = board.pieces[by][KNIGHT];
+        while (knights) {
+            auto from = pop_lsb(knights);
+            Bitboard possible_squares = knight_attacks_from(from) & board.occupied[opposite_color(by)];
+            while (possible_squares) {
+                auto to = pop_lsb(possible_squares);
+                Move move = encode_move(from, to, CAPTURE);
                 move_list.push_back(move);
             }
         }
@@ -50,6 +128,19 @@ namespace rengine {
         }
     }
 
+    void generate_king_capture_moves(const Board& board, MoveList& move_list, Color by) {
+        Bitboard kings = board.pieces[by][KING];
+        while (kings) {
+            auto from = pop_lsb(kings);
+            Bitboard possible_squares = king_attacks_from(from) & board.occupied[opposite_color(by)];
+            while (possible_squares) {
+                auto to = pop_lsb(possible_squares);
+                Move move = encode_move(from, to, CAPTURE);
+                move_list.push_back(move);
+            }
+        }
+    }
+
     void generate_bishop_moves(const Board& board, MoveList& move_list, Color by) {
         Bitboard bishops = board.pieces[by][BISHOP];
         while (bishops) {
@@ -60,6 +151,19 @@ namespace rengine {
                 MoveFlag flag = ((square_bb(to)) & board.occupied[opposite_color(by)])?
                                 CAPTURE : QUIET;
                 Move move = encode_move(from, to, flag);
+                move_list.push_back(move);
+            }
+        }
+    }
+
+    void generate_bishop_capture_moves(const Board &board, MoveList &move_list, Color by) {
+        Bitboard bishops = board.pieces[by][BISHOP];
+        while (bishops) {
+            auto from = pop_lsb(bishops);
+            Bitboard possible_squares = bishop_attacks_from(from, board.all) & board.occupied[opposite_color(by)];
+            while (possible_squares) {
+                auto to = pop_lsb(possible_squares);
+                Move move = encode_move(from, to, CAPTURE);
                 move_list.push_back(move);
             }
         }
@@ -80,6 +184,19 @@ namespace rengine {
         }
     }
 
+    void generate_rook_capture_moves(const Board &board, MoveList &move_list, Color by) {
+        Bitboard rooks = board.pieces[by][ROOK];
+        while (rooks) {
+            auto from = pop_lsb(rooks);
+            Bitboard possible_squares = rook_attacks_from(from, board.all) & board.occupied[opposite_color(by)];
+            while (possible_squares) {
+                auto to = pop_lsb(possible_squares);
+                Move move = encode_move(from, to, CAPTURE);
+                move_list.push_back(move);
+            }
+        }
+    }
+
     void generate_queen_moves(const Board& board, MoveList& move_list, Color by) {
         Bitboard queens = board.pieces[by][QUEEN];
         while (queens) {
@@ -90,6 +207,19 @@ namespace rengine {
                 MoveFlag flag = ((square_bb(to)) & board.occupied[opposite_color(by)])?
                                 CAPTURE : QUIET;
                 Move move = encode_move(from, to, flag);
+                move_list.push_back(move);
+            }
+        }
+    }
+
+    void generate_queen_capture_moves(const Board &board, MoveList &move_list, Color by) {
+        Bitboard queens = board.pieces[by][QUEEN];
+        while (queens) {
+            auto from = pop_lsb(queens);
+            Bitboard possible_squares = queen_attacks_from(from, board.all) & board.occupied[opposite_color(by)];
+            while (possible_squares) {
+                auto to = pop_lsb(possible_squares);
+                Move move = encode_move(from, to, CAPTURE);
                 move_list.push_back(move);
             }
         }
@@ -305,7 +435,8 @@ namespace rengine {
         }
     }
 
-    void generate_pseudo_legal_moves(const Board &board, MoveList &move_list, Color by) {
+    void generate_pseudo_legal_moves(const Board &board, MoveList &move_list) {
+        Color by = board.side_to_move;
         move_list.clear();
         generate_knight_moves(board, move_list, by);
         generate_bishop_moves(board, move_list, by);
@@ -319,8 +450,8 @@ namespace rengine {
     void generate_legal_moves(Board &board, MoveList &legal_move_list) {
         MoveList pseudo_legal_moves;
         Color us = board.side_to_move;
-        generate_pseudo_legal_moves(board, pseudo_legal_moves, us);
-        Undo undo;
+        generate_pseudo_legal_moves(board, pseudo_legal_moves);
+        Undo undo{};
         legal_move_list.clear();
         for (auto pseudo_move : pseudo_legal_moves) {
             make_move(board, pseudo_move, undo);
@@ -331,5 +462,25 @@ namespace rengine {
         }
     }
 
+    void generate_qsearch_pseudo_legal_moves(Board &board, MoveList &move_list, bool& has_legal_moves) {
+        Color us = board.side_to_move;
+        if (in_check(board, us)) {
+            generate_legal_moves(board, move_list);
+            has_legal_moves = !move_list.empty();
+            return;
+        }
+
+        has_legal_moves = has_any_legal_move(board, us);
+        move_list.clear();
+        generate_knight_capture_moves(board, move_list, us);
+        generate_bishop_capture_moves(board, move_list, us);
+        generate_rook_capture_moves(board, move_list, us);
+        generate_queen_capture_moves(board, move_list, us);
+        generate_king_capture_moves(board, move_list, us);
+        generate_pawn_capture_moves(board, move_list, us);
+        generate_pawn_promotion_moves(board, move_list, us);
+        generate_pawn_capture_promotion_moves(board, move_list, us);
+        generate_pawn_en_passant_moves(board, move_list, us);
+    }
 
 }

@@ -66,33 +66,22 @@ namespace rengine {
         ++ctx.stats.nodes;
         ctx.stats.max_ply = std::max(ctx.stats.max_ply, ply);
 
-        MoveList legal_moves;
-        generate_legal_moves(board, legal_moves);
-
-        if (legal_moves.empty()) {
-            if (in_check(board, board.side_to_move)) {
-                return mated_in(ply);
-            }
-            else return VALUE_DRAW;
-        }
-
-        if (is_fifty_move_rule_draw(board)) {
-            return VALUE_DRAW;
-        }
-        if (is_insufficient_material_draw(board)) {
-            return VALUE_DRAW;
-        }
-        if (is_threefold_draw(board)) {
-            return VALUE_DRAW;
-        }
-
         if (depth==0) {
             return qsearch(board, alpha, beta, ply, ctx);
         }
 
+        const bool is_draw = is_fifty_move_rule_draw(board) ||
+                             is_insufficient_material_draw(board) ||
+                             is_threefold_draw(board);
+
+        Color us = board.side_to_move;
+        bool king_in_check = in_check(board, us);
+
+        bool found_legal_moves = false;
+
         Score alpha_original = alpha;
         Move hash_move = 0;
-        TTEntry* tt_entry = ctx.tt->probe(board.zobrist_key);
+        TTEntry* tt_entry = is_draw ? nullptr : ctx.tt->probe(board.zobrist_key);
         if (tt_entry != nullptr) {
             hash_move = tt_entry->best_move;
             if (tt_entry->depth >= depth) {
@@ -109,14 +98,26 @@ namespace rengine {
             }
         }
 
+        MoveList pseudo_legal_moves;
+        generate_pseudo_legal_moves(board, pseudo_legal_moves);
+
         MoveList child_pv;
         Score best_score = -VALUE_INF;
         Move best_move = 0;
-        for (int move_index = 0; move_index < legal_moves.size(); ++move_index) {
-            Move move = select_best_move(board, legal_moves, move_index, ctx.stack, ply, hash_move, &ctx.stats);
-            child_pv.clear();
+        for (int move_index = 0; move_index < pseudo_legal_moves.size(); ++move_index) {
+            Move move = select_best_move(board, pseudo_legal_moves, move_index, ctx.stack, ply, hash_move, &ctx.stats);
             Undo undo{};
             make_move(board, move, undo);
+            if (in_check(board, us)) {
+                unmake_move(board, undo);
+                continue;
+            }
+            found_legal_moves = true;
+            if (is_draw) {
+                unmake_move(board, undo);
+                return VALUE_DRAW;
+            }
+            child_pv.clear();
             Score current_score = -negamax(board, depth-1, -beta, -alpha, ply+1, ctx, child_pv);
             unmake_move(board, undo);
 
@@ -140,7 +141,9 @@ namespace rengine {
                 return alpha;
             }
         }
-
+        if (!found_legal_moves) {
+            return king_in_check ? mated_in(ply) : VALUE_DRAW;
+        }
         TTFlag flag = TT_EXACT;
         if (best_score <= alpha_original) {
             flag = TT_UPPER;
@@ -257,7 +260,9 @@ namespace rengine {
 
             result = depth_result;
             previous_best = result.has_best_move ? result.best_move : 0;
-            ctx.stats.stop_reason = StopReason::DepthLimit;
+            if (ctx.stats.stop_reason == StopReason::NoLegalMoves) {
+                break;
+            }
         }
 
         result.stats = ctx.stats;
@@ -271,48 +276,51 @@ namespace rengine {
         ++ctx.stats.qnodes;
         ctx.stats.max_ply = std::max(ctx.stats.max_ply, ply);
 
-        MoveList moves_to_search, legal_moves;
-        generate_legal_moves(board, legal_moves);
+        Color us = board.side_to_move;
+        const bool king_in_check = in_check(board, us);
+        const bool is_draw = is_fifty_move_rule_draw(board) ||
+                             is_insufficient_material_draw(board) ||
+                             is_threefold_draw(board);
 
-        const bool king_in_check = in_check(board, board.side_to_move);
-        if (legal_moves.empty()) {
-            return king_in_check ? mated_in(ply) : VALUE_DRAW;
-        }
+        MoveList qsearch_pseudo_legal_moves;
+        bool has_legal_moves = false;
+        generate_qsearch_pseudo_legal_moves(board, qsearch_pseudo_legal_moves, has_legal_moves);
 
-        if (is_fifty_move_rule_draw(board)) {
-            return VALUE_DRAW;
-        }
-        if (is_insufficient_material_draw(board)) {
-            return VALUE_DRAW;
-        }
-        if (is_threefold_draw(board)) {
-            return VALUE_DRAW;
-        }
+        bool found_legal_moves = false;
 
         Score best_score = -VALUE_INF;
-        if (king_in_check) {
-            moves_to_search = legal_moves;
-        }
-        else {
+        if (!king_in_check) {
+            if (is_draw) {
+                return VALUE_DRAW;
+            }
+
             best_score = evaluate(board);
             if (best_score >= beta) {
+                if (!has_legal_moves) {
+                    return VALUE_DRAW;
+                }
                 return best_score;
             }
             if (best_score > alpha) {
                 alpha = best_score;
             }
-
-            for (auto move : legal_moves) {
-                if (is_noisy_move(move)) {
-                    moves_to_search.push_back(move);
-                }
-            }
         }
 
-        for (int move_index = 0; move_index < moves_to_search.size(); ++move_index) {
-            Move move = select_best_move(board, moves_to_search, move_index, ctx.stack, ply, 0, &ctx.stats);
+        for (int move_index = 0; move_index < qsearch_pseudo_legal_moves.size(); ++move_index) {
+            Move move = select_best_move(board, qsearch_pseudo_legal_moves, move_index, ctx.stack, ply, 0, &ctx.stats);
             Undo undo{};
             make_move(board, move, undo);
+            if (in_check(board, us)) {
+                unmake_move(board, undo);
+                continue;
+            }
+
+            found_legal_moves = true;
+            if (is_draw) {
+                unmake_move(board, undo);
+                return VALUE_DRAW;
+            }
+
             auto sc = -qsearch(board, -beta, -alpha, ply+1, ctx);
             unmake_move(board, undo);
 
@@ -329,6 +337,14 @@ namespace rengine {
             }
             if (sc > best_score) {
                 best_score = sc;
+            }
+        }
+        if (!found_legal_moves) {
+            if (king_in_check) {
+                return mated_in(ply);
+            }
+            if (!has_legal_moves) {
+                return VALUE_DRAW;
             }
         }
         return best_score;

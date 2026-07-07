@@ -52,13 +52,14 @@ namespace rengine {
         Board board = board_from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         MoveList move_list;
 
-        generate_pseudo_legal_moves(board, move_list, WHITE);
+        generate_pseudo_legal_moves(board, move_list);
         assert(move_list.size() == 20);
         assert(has_move(move_list, parse_square("e2"), parse_square("e4"), DOUBLE_PAWN_PUSH));
         assert(has_move(move_list, parse_square("g1"), parse_square("f3"), QUIET));
 
+        board = board_from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1");
         move_list.clear();
-        generate_pseudo_legal_moves(board, move_list, BLACK);
+        generate_pseudo_legal_moves(board, move_list);
         assert(move_list.size() == 20);
         assert(has_move(move_list, parse_square("e7"), parse_square("e5"), DOUBLE_PAWN_PUSH));
         assert(has_move(move_list, parse_square("g8"), parse_square("f6"), QUIET));
@@ -141,6 +142,51 @@ namespace rengine {
         assert(has_move(move_list, parse_square("a2"), parse_square("b1"), PROMOTION_CAPTURE, BISHOP));
         assert(has_move(move_list, parse_square("a2"), parse_square("b1"), PROMOTION_CAPTURE, ROOK));
         assert(has_move(move_list, parse_square("a2"), parse_square("b1"), PROMOTION_CAPTURE, QUEEN));
+    }
+
+    void test_qsearch_promotions() {
+        Board board = board_from("1n5k/P7/8/8/8/8/8/4K3 w - - 0 1");
+        MoveList move_list;
+        bool has_legal_moves = false;
+
+        generate_qsearch_pseudo_legal_moves(board, move_list, has_legal_moves);
+
+        assert(has_legal_moves);
+        assert(count_flag(move_list, PROMOTION) == 4);
+        assert(count_flag(move_list, PROMOTION_CAPTURE) == 4);
+        for (int pt = KNIGHT; pt <= QUEEN; ++pt) {
+            PieceType promotion = static_cast<PieceType>(pt);
+            assert(count_move(move_list, parse_square("a7"), parse_square("a8"), PROMOTION, promotion) == 1);
+            assert(count_move(move_list, parse_square("a7"), parse_square("b8"), PROMOTION_CAPTURE, promotion) == 1);
+        }
+    }
+
+    void test_qsearch_legal_move_probe() {
+        Board board = board_from("4k3/8/8/8/8/8/8/4KQ2 w - - 0 1");
+        MoveList move_list;
+        bool has_legal_moves = false;
+
+        generate_qsearch_pseudo_legal_moves(board, move_list, has_legal_moves);
+
+        assert(has_legal_moves);
+        assert(move_list.empty());
+
+        board = board_from("7k/p4K2/6Q1/8/8/8/8/8 b - - 0 1");
+        move_list.clear();
+        has_legal_moves = false;
+
+        generate_qsearch_pseudo_legal_moves(board, move_list, has_legal_moves);
+
+        assert(has_legal_moves);
+        assert(move_list.empty());
+
+        board = board_from("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1");
+        move_list.clear();
+        has_legal_moves = true;
+
+        generate_qsearch_pseudo_legal_moves(board, move_list, has_legal_moves);
+
+        assert(!has_legal_moves);
     }
 
     void test_pawn_en_passant() {
@@ -259,6 +305,8 @@ int main() {
     rengine::test_pawn_pushes();
     rengine::test_pawn_captures();
     rengine::test_pawn_promotions();
+    rengine::test_qsearch_promotions();
+    rengine::test_qsearch_legal_move_probe();
     rengine::test_pawn_en_passant();
     rengine::test_knight_moves();
     rengine::test_king_moves();

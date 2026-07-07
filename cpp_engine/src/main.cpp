@@ -59,10 +59,14 @@ namespace {
         return std::chrono::duration<double>(result.stats.elapsed_time).count();
     }
 
+    std::uint64_t total_nodes(const rengine::SearchResult& result) {
+        return result.stats.nodes + result.stats.qnodes;
+    }
+
     double nodes_per_second(const rengine::SearchResult& result) {
         double seconds = elapsed_seconds(result);
         if (seconds == 0.0) return 0.0;
-        return static_cast<double>(result.stats.nodes) / seconds;
+        return static_cast<double>(total_nodes(result)) / seconds;
     }
 }
 
@@ -88,6 +92,8 @@ int main(int argc, char** argv) {
     std::cout << "score " << result.score << '\n';
     std::cout << "depth " << result.completed_depth << '\n';
     std::cout << "nodes " << result.stats.nodes << '\n';
+    std::cout << "qnodes " << result.stats.qnodes << '\n';
+    std::cout << "totalnodes " << total_nodes(result) << '\n';
     std::cout << "time " << elapsed_seconds(result) << "s\n";
     std::cout << "nps " << nodes_per_second(result) << '\n';
 }

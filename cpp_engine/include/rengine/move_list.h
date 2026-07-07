@@ -4,7 +4,7 @@
 #include<cassert>
 #include "rengine/move.h"
 namespace rengine {
-    inline constexpr int MAX_MOVES = 256;
+    inline constexpr int MAX_MOVES = 512;
     struct MoveList {
         std::array<Move, MAX_MOVES> moves{};
         int count = 0;

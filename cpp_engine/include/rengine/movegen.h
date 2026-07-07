@@ -6,7 +6,7 @@
 #include <bit>
 
 namespace rengine {
-    void generate_pseudo_legal_moves(const Board& board, MoveList& move_list, Color by);
+    void generate_pseudo_legal_moves(const Board& board, MoveList& move_list);
 
     void generate_knight_moves(const Board& board, MoveList& move_list, Color by);
     void generate_king_moves(const Board& board, MoveList& move_list, Color by);
@@ -21,6 +21,14 @@ namespace rengine {
     void generate_pawn_capture_promotion_moves(const Board& board, MoveList& move_list, Color by);
     void generate_pawn_en_passant_moves(const Board& board, MoveList& move_list, Color by);
     void generate_castling_moves(const Board& board, MoveList& move_list, Color by);
+
+    void generate_knight_capture_moves(const Board& board, MoveList& move_list, Color by);
+    void generate_king_capture_moves(const Board& board, MoveList& move_list, Color by);
+    void generate_bishop_capture_moves(const Board& board, MoveList& move_list, Color by);
+    void generate_rook_capture_moves(const Board& board, MoveList& move_list, Color by);
+    void generate_queen_capture_moves(const Board& board, MoveList& move_list, Color by);
+    void generate_qsearch_pseudo_legal_moves(Board& board, MoveList& move_list, bool& has_legal_moves);
+    void generate_qsearch_pseudo_legal_moves(Board& board, MoveList& move_list);
 
     void generate_legal_moves(Board& board, MoveList& legal_move_list);
 

@@ -40,7 +40,7 @@ namespace rengine {
 
         assert(result.has_best_move);
         assert(move_to_uci(result.best_move) == "a1a8");
-        assert(result.score == 500);
+        assert(result.score == 480);
     }
 
     void test_static_depth_zero_search() {
@@ -54,7 +54,18 @@ namespace rengine {
         assert(result.completed_depth == 0);
         assert(result.stats.nodes == 0);
         assert(result.stats.qnodes == 1);
-        assert(result.score == 900);
+        assert(result.score == 890);
+    }
+
+    void test_qsearch_stand_pat_without_noisy_moves() {
+        Board board = board_from("4k3/8/8/8/8/8/8/4KQ2 w - - 0 1");
+        SearchLimits limits;
+        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false, {}};
+
+        Score score = qsearch(board, -VALUE_INF, VALUE_INF, 0, ctx);
+
+        assert(score == 890);
+        assert(ctx.stats.qnodes == 1);
     }
 
     void test_depth_two_pv() {
@@ -97,6 +108,26 @@ namespace rengine {
         assert(ctx.stats.qnodes == 1);
     }
 
+    void test_qsearch_mate_takes_precedence_over_fifty_move_draw() {
+        Board board = board_from("7k/5K2/7Q/8/8/8/8/8 b - - 100 1");
+        SearchLimits limits;
+        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false, {}};
+
+        Score score = qsearch(board, -VALUE_INF, VALUE_INF, 0, ctx);
+
+        assert(score == mated_in(0));
+    }
+
+    void test_qsearch_terminal_stalemate() {
+        Board board = board_from("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1");
+        SearchLimits limits;
+        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false, {}};
+
+        Score score = qsearch(board, -VALUE_INF, VALUE_INF, 0, ctx);
+
+        assert(score == VALUE_DRAW);
+    }
+
     void test_terminal_checkmate() {
         Board board = board_from("7k/5K2/7Q/8/8/8/8/8 b - - 0 1");
         SearchLimits limits;
@@ -131,16 +162,32 @@ namespace rengine {
         assert(!result.has_best_move);
         assert(result.score == VALUE_DRAW);
     }
+
+    void test_quiet_mate_takes_precedence_over_fifty_move_draw() {
+        Board board = board_from("7k/8/5KQ1/8/8/8/8/8 w - - 99 1");
+        SearchLimits limits;
+        limits.depth = 2;
+
+        SearchResult result = search_position(board, limits);
+
+        assert(result.has_best_move);
+        assert(move_to_uci(result.best_move) == "g6g7");
+        assert(result.score == mate_in(1));
+    }
 }
 
 int main() {
     rengine::test_startpos_depth_one_search();
     rengine::test_material_capture_is_selected();
     rengine::test_static_depth_zero_search();
+    rengine::test_qsearch_stand_pat_without_noisy_moves();
     rengine::test_depth_two_pv();
     rengine::test_node_limit_is_deterministic();
     rengine::test_qsearch_terminal_checkmate();
+    rengine::test_qsearch_mate_takes_precedence_over_fifty_move_draw();
+    rengine::test_qsearch_terminal_stalemate();
     rengine::test_terminal_checkmate();
     rengine::test_terminal_stalemate();
     rengine::test_fifty_move_draw();
+    rengine::test_quiet_mate_takes_precedence_over_fifty_move_draw();
 }
