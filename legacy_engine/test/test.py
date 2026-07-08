@@ -1,7 +1,5 @@
-import unittest
 import chess
-from engine import *
-from engine.evaluation import evaluate_board
+from legacy_engine.engine.evaluation import evaluate_board
 
 def main():
     board = chess.Board()

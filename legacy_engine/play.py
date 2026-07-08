@@ -1,5 +1,5 @@
 import chess
-from engine.engine import RandomEngine, ClassicalEngine
+from legacy_engine.engine.engine import ClassicalEngine
 
 board = chess.Board()
 engine = ClassicalEngine(6)
