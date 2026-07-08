@@ -61,6 +61,8 @@ namespace rengine {
             std::cout << "history_quiet_cutoffs: " << result.stats.history_quiet_cutoffs << '\n';
             std::cout << "null_move_searches: " << result.stats.null_move_searches << '\n';
             std::cout << "null_move_cutoffs: " << result.stats.null_move_cutoffs << '\n';
+            std::cout << "lmr_reductions: " << result.stats.lmr_reductions << '\n';
+            std::cout << "lmr_researches: " << result.stats.lmr_researches << '\n';
             std::cout << "time: " << std::fixed << std::setprecision(6)
                       << elapsed_seconds(result) << "s\n";
             std::cout << "nps: " << std::fixed << std::setprecision(2)

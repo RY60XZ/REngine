@@ -205,6 +205,21 @@ namespace rengine {
         assert(ctx.stats.null_move_searches == 0);
         assert(ctx.stats.null_move_cutoffs == 0);
     }
+
+    void test_late_move_reduction_searches_late_quiet_moves_at_reduced_depth() {
+        Board board = board_from("4k3/8/8/8/8/8/8/R3K3 w - - 0 1");
+        const std::string before = board_to_fen(board);
+        SearchLimits limits;
+        TranspositionTable tt(1024);
+        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false, {}, &tt};
+        MoveList pv;
+
+        Score score = negamax(board, 4, -VALUE_INF, VALUE_INF, 0, ctx, pv);
+
+        assert(board_to_fen(board) == before);
+        assert(score > -VALUE_INF);
+        assert(ctx.stats.lmr_reductions > 0);
+    }
 }
 
 int main() {
@@ -223,4 +238,5 @@ int main() {
     rengine::test_quiet_mate_takes_precedence_over_fifty_move_draw();
     rengine::test_null_move_pruning_cutoff();
     rengine::test_null_move_pruning_skips_stalemate();
+    rengine::test_late_move_reduction_searches_late_quiet_moves_at_reduced_depth();
 }

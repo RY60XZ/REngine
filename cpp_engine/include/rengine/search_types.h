@@ -87,6 +87,8 @@ namespace rengine {
         std::uint64_t history_quiet_cutoffs = 0;
         std::uint64_t null_move_searches = 0;
         std::uint64_t null_move_cutoffs = 0;
+        std::uint64_t lmr_reductions = 0;
+        std::uint64_t lmr_researches = 0;
         std::chrono::nanoseconds elapsed_time{0};
         int max_ply = 0;
         StopReason stop_reason = StopReason::DepthLimit;

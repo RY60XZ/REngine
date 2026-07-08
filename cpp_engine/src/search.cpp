@@ -17,6 +17,8 @@ namespace rengine {
         constexpr int NULL_MOVE_MIN_DEPTH = 3;
         constexpr int NULL_MOVE_REDUCTION_BASE = 2;
         constexpr int NULL_MOVE_REDUCTION_DEPTH_DIVISOR = 6;
+        constexpr int LMR_MIN_DEPTH = 3;
+        constexpr int LMR_FULL_DEPTH_LEGAL_MOVES = 3;
 
         void finish_timing(SearchResult& result, Clock::time_point start) {
             result.stats.elapsed_time = Clock::now() - start;
@@ -76,6 +78,28 @@ namespace rengine {
             }
 
             return has_any_legal_move(board);
+        }
+
+        int late_move_reduction(int depth, int searched_legal_moves) {
+            int reduction = 1;
+            if (depth >= 6 && searched_legal_moves >= 6) {
+                ++reduction;
+            }
+            return std::min(reduction, depth - 1);
+        }
+
+        bool can_reduce_late_move(int depth, int searched_legal_moves, Move move, Move hash_move,
+                                  Score alpha, Score beta, bool king_in_check, bool gives_check) {
+            return depth >= LMR_MIN_DEPTH &&
+                   searched_legal_moves >= LMR_FULL_DEPTH_LEGAL_MOVES &&
+                   alpha > -VALUE_INF + 1 &&
+                   !is_mate_score(alpha) &&
+                   !is_mate_score(beta) &&
+                   !king_in_check &&
+                   !gives_check &&
+                   move != hash_move &&
+                   is_quiet_move(move) &&
+                   !is_castling(move);
         }
 
         void record_beta_cutoff(SearchContext& ctx, const Board& board, Move move,
@@ -174,6 +198,7 @@ namespace rengine {
         MoveList child_pv;
         Score best_score = -VALUE_INF;
         Move best_move = 0;
+        int searched_legal_moves = 0;
         for (int move_index = 0; move_index < pseudo_legal_moves.size(); ++move_index) {
             Move move = select_best_move(pseudo_legal_moves, move_scores, move_index);
             Undo undo{};
@@ -183,12 +208,33 @@ namespace rengine {
                 continue;
             }
             found_legal_moves = true;
+            const int legal_move_index = searched_legal_moves++;
             if (is_draw) {
                 unmake_move(board, undo);
                 return VALUE_DRAW;
             }
+            const bool gives_check = in_check(board, board.side_to_move);
             child_pv.clear();
-            Score current_score = -negamax(board, depth-1, -beta, -alpha, ply+1, ctx, child_pv);
+            Score current_score;
+            if (can_reduce_late_move(depth, legal_move_index, move, hash_move, alpha, beta,
+                                     king_in_check, gives_check)) {
+                MoveList reduced_pv;
+                const int reduction = late_move_reduction(depth, legal_move_index);
+                const int reduced_depth = depth - 1 - reduction;
+                ++ctx.stats.lmr_reductions;
+                current_score = -negamax(board, reduced_depth, -alpha - 1, -alpha,
+                                         ply + 1, ctx, reduced_pv);
+                if (!ctx.stopped && current_score > alpha) {
+                    ++ctx.stats.lmr_researches;
+                    child_pv.clear();
+                    current_score = -negamax(board, depth - 1, -beta, -alpha,
+                                             ply + 1, ctx, child_pv);
+                }
+            }
+            else {
+                current_score = -negamax(board, depth - 1, -beta, -alpha,
+                                         ply + 1, ctx, child_pv);
+            }
             unmake_move(board, undo);
 
             if (ctx.stopped) {
@@ -206,7 +252,7 @@ namespace rengine {
                 pv.append(child_pv.begin(), child_pv.end());
             }
             if (alpha>=beta) {
-                record_beta_cutoff(ctx, board, move, ply, depth, move_index);
+                record_beta_cutoff(ctx, board, move, ply, depth, legal_move_index);
                 ctx.tt->store(board.zobrist_key, depth, score_to_tt(alpha, ply), TT_LOWER, move);
                 return alpha;
             }
