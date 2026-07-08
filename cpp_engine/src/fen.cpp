@@ -72,6 +72,7 @@ namespace rengine {
         }
 
         update_zobrist_key(board);
+        reset_position_history(board);
     }
 
     std::string board_to_fen(const Board &board) {

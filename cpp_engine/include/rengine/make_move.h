@@ -12,6 +12,7 @@ namespace rengine {
         ZobristKey zobrist_key;
         int half_move_clock;
         int full_move_number;
+        int position_history_size;
     };
 
     void make_move(Board& board, Move move, Undo& undo);

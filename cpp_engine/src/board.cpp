@@ -21,5 +21,6 @@ namespace rengine{
         board.zobrist_key = 0;
         board.half_move_clock = 0;
         board.full_move_number = 1;
+        board.position_history_size = 0;
     }
 }

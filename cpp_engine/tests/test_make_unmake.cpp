@@ -13,12 +13,15 @@ namespace rengine {
 
     void assert_unmake_restores(const std::string& fen, Move move) {
         Board board = board_from(fen);
+        int original_history_size = board.position_history_size;
         Undo undo;
 
         make_move(board, move, undo);
+        assert(board.position_history_size == original_history_size + 1);
         unmake_move(board, undo);
 
         assert(board_to_fen(board) == fen);
+        assert(board.position_history_size == original_history_size);
     }
 
     void test_quiet_move() {
@@ -207,13 +210,16 @@ namespace rengine {
         std::string fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2";
         Board board = board_from(fen);
         Undo undo;
+        int original_history_size = board.position_history_size;
 
         make_null_move(board, undo);
 
         assert(board_to_fen(board) == "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+        assert(board.position_history_size == original_history_size + 1);
 
         unmake_null_move(board, undo);
         assert(board_to_fen(board) == fen);
+        assert(board.position_history_size == original_history_size);
     }
 }
 

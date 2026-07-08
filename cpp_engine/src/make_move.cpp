@@ -28,6 +28,7 @@ namespace rengine {
         undo.move = move;
         undo.captured_piece = board.squares[to];
         undo.zobrist_key = board.zobrist_key;
+        undo.position_history_size = board.position_history_size;
         xor_castling_key(board);
         xor_en_passant_key(board, board.en_passant_square);
         board.zobrist_key ^= ZOBRIST_TABLE.side_to_move;
@@ -171,6 +172,7 @@ namespace rengine {
         if (flag != DOUBLE_PAWN_PUSH) board.en_passant_square = INVALID_SQUARE;
         xor_castling_key(board);
         xor_en_passant_key(board, board.en_passant_square);
+        push_position_history(board);
     }
 
     void unmake_move(Board& board, const Undo& undo) {
@@ -243,6 +245,7 @@ namespace rengine {
         board.zobrist_key = undo.zobrist_key;
         board.half_move_clock = undo.half_move_clock;
         board.full_move_number = undo.full_move_number;
+        board.position_history_size = undo.position_history_size;
     }
 
     void make_null_move(Board& board, Undo& undo) {
@@ -251,11 +254,13 @@ namespace rengine {
         undo.zobrist_key = board.zobrist_key;
         undo.half_move_clock = board.half_move_clock;
         undo.full_move_number = board.full_move_number;
+        undo.position_history_size = board.position_history_size;
 
         xor_en_passant_key(board, board.en_passant_square);
         board.en_passant_square = INVALID_SQUARE;
         board.side_to_move = opposite_color(board.side_to_move);
         board.zobrist_key ^= ZOBRIST_TABLE.side_to_move;
+        push_position_history(board);
     }
 
     void unmake_null_move(Board& board, const Undo& undo) {
@@ -265,5 +270,6 @@ namespace rengine {
         board.zobrist_key = undo.zobrist_key;
         board.half_move_clock = undo.half_move_clock;
         board.full_move_number = undo.full_move_number;
+        board.position_history_size = undo.position_history_size;
     }
 }

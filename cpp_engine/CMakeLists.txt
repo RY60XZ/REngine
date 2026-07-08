@@ -91,6 +91,9 @@ target_compile_options(rengine_core
 add_executable(cpp_engine src/main.cpp)
 target_link_libraries(cpp_engine PRIVATE rengine_core)
 
+add_executable(play src/play.cpp)
+target_link_libraries(play PRIVATE rengine_core)
+
 add_executable(test_movegen tests/test_movegen.cpp)
 target_link_libraries(test_movegen PRIVATE rengine_core)
 

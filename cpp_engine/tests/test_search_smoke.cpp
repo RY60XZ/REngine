@@ -1,5 +1,8 @@
 #include"rengine/fen.h"
+#include"rengine/draw.h"
+#include"rengine/make_move.h"
 #include"rengine/move_format.h"
+#include"rengine/movegen.h"
 #include"rengine/search.h"
 #include"rengine/tt.h"
 #include<cassert>
@@ -11,6 +14,19 @@ namespace rengine {
         Board board;
         set_from_fen(board, fen);
         return board;
+    }
+
+    void play_uci(Board& board, const std::string& uci) {
+        MoveList legal_moves;
+        generate_legal_moves(board, legal_moves);
+        for (Move move : legal_moves) {
+            if (move_to_uci(move) == uci) {
+                Undo undo;
+                make_move(board, move, undo);
+                return;
+            }
+        }
+        assert(false && "expected legal move");
     }
 
     void test_startpos_depth_one_search() {
@@ -164,6 +180,34 @@ namespace rengine {
         assert(result.score == VALUE_DRAW);
     }
 
+    void test_insufficient_material_draw_detection() {
+        assert(is_insufficient_material_draw(board_from("4k3/8/8/8/8/8/8/4K3 w - - 0 1")));
+        assert(is_insufficient_material_draw(board_from("4k3/8/8/8/8/8/8/3BK3 w - - 0 1")));
+        assert(is_insufficient_material_draw(board_from("4k3/8/8/8/8/8/8/3NK3 w - - 0 1")));
+        assert(is_insufficient_material_draw(board_from("4k1b1/8/8/8/8/8/8/3BK3 w - - 0 1")));
+
+        assert(!is_insufficient_material_draw(board_from("4k3/8/8/8/8/8/8/3QK3 w - - 0 1")));
+        assert(!is_insufficient_material_draw(board_from("4k3/8/8/8/8/8/8/2NNK3 w - - 0 1")));
+        assert(!is_insufficient_material_draw(board_from("4k2b/8/8/8/8/8/8/3BK3 w - - 0 1")));
+    }
+
+    void test_threefold_draw_detection() {
+        Board board = board_from("4k3/8/8/8/8/8/8/N3K2n w - - 0 1");
+
+        assert(!is_threefold_draw(board));
+        play_uci(board, "a1b3");
+        play_uci(board, "h1f2");
+        play_uci(board, "b3a1");
+        play_uci(board, "f2h1");
+        assert(!is_threefold_draw(board));
+        play_uci(board, "a1b3");
+        play_uci(board, "h1f2");
+        play_uci(board, "b3a1");
+        play_uci(board, "f2h1");
+
+        assert(is_threefold_draw(board));
+    }
+
     void test_quiet_mate_takes_precedence_over_fifty_move_draw() {
         Board board = board_from("7k/8/5KQ1/8/8/8/8/8 w - - 99 1");
         SearchLimits limits;
@@ -235,6 +279,8 @@ int main() {
     rengine::test_terminal_checkmate();
     rengine::test_terminal_stalemate();
     rengine::test_fifty_move_draw();
+    rengine::test_insufficient_material_draw_detection();
+    rengine::test_threefold_draw_detection();
     rengine::test_quiet_mate_takes_precedence_over_fifty_move_draw();
     rengine::test_null_move_pruning_cutoff();
     rengine::test_null_move_pruning_skips_stalemate();

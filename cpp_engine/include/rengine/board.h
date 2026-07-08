@@ -1,9 +1,12 @@
 #ifndef CPP_ENGINE_BOARD_H
 #define CPP_ENGINE_BOARD_H
+#include <array>
 #include <bit>
 #include "rengine/types.h"
 #include<cassert>
 namespace rengine {
+    inline constexpr int MAX_POSITION_HISTORY = 4096;
+
     struct Board {
         Bitboard pieces[2][6]{};
         Bitboard occupied[2]{};
@@ -16,9 +19,23 @@ namespace rengine {
         ZobristKey zobrist_key = 0;
         int half_move_clock = 0;
         int full_move_number = 1;
+        int position_history_size = 0;
+        std::array<ZobristKey, MAX_POSITION_HISTORY> position_history{};
     };
 
     void clear(Board& board);
+
+    inline void reset_position_history(Board& board) {
+        board.position_history_size = 1;
+        board.position_history[0] = board.zobrist_key;
+    }
+
+    inline void push_position_history(Board& board) {
+        assert(board.position_history_size < MAX_POSITION_HISTORY);
+        if (board.position_history_size < MAX_POSITION_HISTORY) {
+            board.position_history[board.position_history_size++] = board.zobrist_key;
+        }
+    }
 
     constexpr Bitboard square_bb(Square square) {
         assert(square < 64);
