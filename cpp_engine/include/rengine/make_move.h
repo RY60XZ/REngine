@@ -16,6 +16,8 @@ namespace rengine {
 
     void make_move(Board& board, Move move, Undo& undo);
     void unmake_move(Board& board, const Undo& undo);
+    void make_null_move(Board& board, Undo& undo);
+    void unmake_null_move(Board& board, const Undo& undo);
     [[nodiscard]] inline unsigned update_castling_rights(Board& board, Square from, Square to) {
         unsigned original_castling_rights = board.castling_rights;
         switch (from) {

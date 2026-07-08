@@ -244,4 +244,26 @@ namespace rengine {
         board.half_move_clock = undo.half_move_clock;
         board.full_move_number = undo.full_move_number;
     }
+
+    void make_null_move(Board& board, Undo& undo) {
+        undo.castling_rights = board.castling_rights;
+        undo.en_passant_square = board.en_passant_square;
+        undo.zobrist_key = board.zobrist_key;
+        undo.half_move_clock = board.half_move_clock;
+        undo.full_move_number = board.full_move_number;
+
+        xor_en_passant_key(board, board.en_passant_square);
+        board.en_passant_square = INVALID_SQUARE;
+        board.side_to_move = opposite_color(board.side_to_move);
+        board.zobrist_key ^= ZOBRIST_TABLE.side_to_move;
+    }
+
+    void unmake_null_move(Board& board, const Undo& undo) {
+        board.side_to_move = opposite_color(board.side_to_move);
+        board.castling_rights = undo.castling_rights;
+        board.en_passant_square = undo.en_passant_square;
+        board.zobrist_key = undo.zobrist_key;
+        board.half_move_clock = undo.half_move_clock;
+        board.full_move_number = undo.full_move_number;
+    }
 }

@@ -14,6 +14,9 @@ namespace rengine {
     namespace {
         using Clock = std::chrono::steady_clock;
         constexpr std::uint64_t TIME_CHECK_INTERVAL = 1024;
+        constexpr int NULL_MOVE_MIN_DEPTH = 3;
+        constexpr int NULL_MOVE_REDUCTION_BASE = 2;
+        constexpr int NULL_MOVE_REDUCTION_DEPTH_DIVISOR = 6;
 
         void finish_timing(SearchResult& result, Clock::time_point start) {
             result.stats.elapsed_time = Clock::now() - start;
@@ -47,6 +50,34 @@ namespace rengine {
             return tt;
         }
 
+        bool has_null_move_material(const Board& board, Color color) {
+            return (board.pieces[color][KNIGHT] |
+                    board.pieces[color][BISHOP] |
+                    board.pieces[color][ROOK] |
+                    board.pieces[color][QUEEN]) != 0;
+        }
+
+        int null_move_reduction(int depth) {
+            return NULL_MOVE_REDUCTION_BASE + depth / NULL_MOVE_REDUCTION_DEPTH_DIVISOR;
+        }
+
+        bool can_try_null_move(Board& board, int depth, Score beta, bool king_in_check,
+                               bool is_draw, bool allow_null_move) {
+            if (!allow_null_move ||
+                depth < NULL_MOVE_MIN_DEPTH ||
+                king_in_check ||
+                is_draw ||
+                beta <= -VALUE_INF + 1 ||
+                beta >= VALUE_INF - 1 ||
+                is_mate_score(beta) ||
+                !has_null_move_material(board, board.side_to_move) ||
+                evaluate(board) < beta) {
+                return false;
+            }
+
+            return has_any_legal_move(board);
+        }
+
         void record_beta_cutoff(SearchContext& ctx, const Board& board, Move move,
                                 int ply, int depth, int move_index) {
             ++ctx.stats.cutoffs;
@@ -74,7 +105,8 @@ namespace rengine {
         shared_tt().clear();
     }
 
-    Score negamax(Board& board, int depth, Score alpha, Score beta, int ply, SearchContext& ctx, MoveList& pv) {
+    Score negamax(Board& board, int depth, Score alpha, Score beta, int ply, SearchContext& ctx,
+                  MoveList& pv, bool allow_null_move) {
         if (should_stop(ctx)) {
             return alpha;
         }
@@ -111,6 +143,26 @@ namespace rengine {
                 if (tt_entry->flag == TT_UPPER && tt_score <= alpha) {
                     return tt_score;
                 }
+            }
+        }
+
+        if (can_try_null_move(board, depth, beta, king_in_check, is_draw, allow_null_move)) {
+            ++ctx.stats.null_move_searches;
+            Undo undo{};
+            MoveList null_pv;
+            make_null_move(board, undo);
+            const int null_depth = depth - 1 - null_move_reduction(depth);
+            Score null_score = -negamax(board, null_depth, -beta, -beta + 1, ply + 1,
+                                        ctx, null_pv, false);
+            unmake_null_move(board, undo);
+
+            if (ctx.stopped) {
+                return alpha;
+            }
+            if (null_score >= beta) {
+                ++ctx.stats.null_move_cutoffs;
+                ctx.tt->store(board.zobrist_key, depth, score_to_tt(beta, ply), TT_LOWER, 0);
+                return beta;
             }
         }
 

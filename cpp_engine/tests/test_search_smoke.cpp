@@ -1,6 +1,7 @@
 #include"rengine/fen.h"
 #include"rengine/move_format.h"
 #include"rengine/search.h"
+#include"rengine/tt.h"
 #include<cassert>
 #include<chrono>
 #include<string>
@@ -174,6 +175,36 @@ namespace rengine {
         assert(move_to_uci(result.best_move) == "g6g7");
         assert(result.score == mate_in(1));
     }
+
+    void test_null_move_pruning_cutoff() {
+        Board board = board_from("4k3/8/8/8/8/8/8/4KQ2 w - - 0 1");
+        const std::string before = board_to_fen(board);
+        SearchLimits limits;
+        TranspositionTable tt(1024);
+        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false, {}, &tt};
+        MoveList pv;
+
+        Score score = negamax(board, 3, 500, 600, 0, ctx, pv);
+
+        assert(board_to_fen(board) == before);
+        assert(score == 600);
+        assert(ctx.stats.null_move_searches == 1);
+        assert(ctx.stats.null_move_cutoffs == 1);
+    }
+
+    void test_null_move_pruning_skips_stalemate() {
+        Board board = board_from("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1");
+        SearchLimits limits;
+        TranspositionTable tt(1024);
+        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false, {}, &tt};
+        MoveList pv;
+
+        Score score = negamax(board, 3, -1100, -1000, 0, ctx, pv);
+
+        assert(score == VALUE_DRAW);
+        assert(ctx.stats.null_move_searches == 0);
+        assert(ctx.stats.null_move_cutoffs == 0);
+    }
 }
 
 int main() {
@@ -190,4 +221,6 @@ int main() {
     rengine::test_terminal_stalemate();
     rengine::test_fifty_move_draw();
     rengine::test_quiet_mate_takes_precedence_over_fifty_move_draw();
+    rengine::test_null_move_pruning_cutoff();
+    rengine::test_null_move_pruning_skips_stalemate();
 }

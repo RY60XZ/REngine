@@ -59,6 +59,8 @@ namespace rengine {
                       << killer_hit_rate(result) * 100.0 << "%\n";
             std::cout << "killer_cutoffs: " << result.stats.killer_cutoffs << '\n';
             std::cout << "history_quiet_cutoffs: " << result.stats.history_quiet_cutoffs << '\n';
+            std::cout << "null_move_searches: " << result.stats.null_move_searches << '\n';
+            std::cout << "null_move_cutoffs: " << result.stats.null_move_cutoffs << '\n';
             std::cout << "time: " << std::fixed << std::setprecision(6)
                       << elapsed_seconds(result) << "s\n";
             std::cout << "nps: " << std::fixed << std::setprecision(2)

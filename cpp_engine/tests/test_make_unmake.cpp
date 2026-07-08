@@ -202,6 +202,19 @@ namespace rengine {
         assert_unmake_restores("8/P7/8/8/8/8/8/8 w - - 5 12",
                                encode_move(parse_square("a7"), parse_square("a8"), PROMOTION, QUEEN));
     }
+
+    void test_null_move() {
+        std::string fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2";
+        Board board = board_from(fen);
+        Undo undo;
+
+        make_null_move(board, undo);
+
+        assert(board_to_fen(board) == "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+
+        unmake_null_move(board, undo);
+        assert(board_to_fen(board) == fen);
+    }
 }
 
 int main() {
@@ -213,4 +226,5 @@ int main() {
     rengine::test_promotion_move();
     rengine::test_castling_rights();
     rengine::test_round_trips();
+    rengine::test_null_move();
 }

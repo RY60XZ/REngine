@@ -90,6 +90,19 @@ namespace rengine {
         assert_incremental_hash_round_trip("1n6/P7/8/8/8/8/8/8 w - - 5 12",
                                            encode_move(parse_square("a7"), parse_square("b8"), PROMOTION_CAPTURE, QUEEN));
     }
+
+    void test_null_move_keeps_zobrist_key_synced() {
+        Board board = board_from("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2");
+        ZobristKey original_key = board.zobrist_key;
+        Undo undo;
+
+        make_null_move(board, undo);
+        assert(board.zobrist_key == compute_zobrist_key(board));
+
+        unmake_null_move(board, undo);
+        assert(board.zobrist_key == original_key);
+        assert(board.zobrist_key == compute_zobrist_key(board));
+    }
 }
 
 int main() {
@@ -99,4 +112,5 @@ int main() {
     rengine::test_zobrist_table_values_are_distinct();
     rengine::test_compute_zobrist_key_tracks_board_state();
     rengine::test_make_unmake_keeps_zobrist_key_synced();
+    rengine::test_null_move_keeps_zobrist_key_synced();
 }
