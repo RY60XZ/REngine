@@ -3,6 +3,7 @@
 #include"rengine/make_move.h"
 #include"rengine/move_format.h"
 #include"rengine/movegen.h"
+#include"rengine/nnue.h"
 #include"rengine/search.h"
 #include"rengine/square.h"
 #include<algorithm>
@@ -360,5 +361,6 @@ namespace rengine {
 }
 
 int main() {
+    rengine::load_default_nnue();
     rengine::play_game();
 }

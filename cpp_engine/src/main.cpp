@@ -1,5 +1,6 @@
 #include"rengine/fen.h"
 #include"rengine/move_format.h"
+#include"rengine/nnue.h"
 #include"rengine/search.h"
 #include"rengine/uci.h"
 #include<chrono>
@@ -73,6 +74,8 @@ namespace {
 }
 
 int main(int argc, char** argv) {
+    rengine::load_default_nnue();
+
     if (argc == 1 || (argc == 2 && std::string(argv[1]) == "--uci")) {
         return rengine::run_uci_loop(std::cin, std::cout);
     }

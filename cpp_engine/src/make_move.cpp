@@ -1,4 +1,5 @@
 #include"rengine/make_move.h"
+#include"rengine/nnue.h"
 #include"rengine/square.h"
 #include"rengine/zobrist.h"
 
@@ -29,6 +30,9 @@ namespace rengine {
         undo.captured_piece = board.squares[to];
         undo.zobrist_key = board.zobrist_key;
         undo.position_history_size = board.position_history_size;
+        undo.nnue_accumulator = board.nnue_accumulator;
+        undo.nnue_dirty = board.nnue_dirty;
+        undo.nnue_initialized = board.nnue_initialized;
         xor_castling_key(board);
         xor_en_passant_key(board, board.en_passant_square);
         board.zobrist_key ^= ZOBRIST_TABLE.side_to_move;
@@ -170,6 +174,7 @@ namespace rengine {
             }
         }
         if (flag != DOUBLE_PAWN_PUSH) board.en_passant_square = INVALID_SQUARE;
+        update_nnue_after_move(board, move, from_piece, undo.captured_piece, undo.castling_rights);
         xor_castling_key(board);
         xor_en_passant_key(board, board.en_passant_square);
         push_position_history(board);
@@ -246,6 +251,9 @@ namespace rengine {
         board.half_move_clock = undo.half_move_clock;
         board.full_move_number = undo.full_move_number;
         board.position_history_size = undo.position_history_size;
+        board.nnue_accumulator = undo.nnue_accumulator;
+        board.nnue_dirty = undo.nnue_dirty;
+        board.nnue_initialized = undo.nnue_initialized;
     }
 
     void make_null_move(Board& board, Undo& undo) {
@@ -255,6 +263,9 @@ namespace rengine {
         undo.half_move_clock = board.half_move_clock;
         undo.full_move_number = board.full_move_number;
         undo.position_history_size = board.position_history_size;
+        undo.nnue_accumulator = board.nnue_accumulator;
+        undo.nnue_dirty = board.nnue_dirty;
+        undo.nnue_initialized = board.nnue_initialized;
 
         xor_en_passant_key(board, board.en_passant_square);
         board.en_passant_square = INVALID_SQUARE;
@@ -271,5 +282,8 @@ namespace rengine {
         board.half_move_clock = undo.half_move_clock;
         board.full_move_number = undo.full_move_number;
         board.position_history_size = undo.position_history_size;
+        board.nnue_accumulator = undo.nnue_accumulator;
+        board.nnue_dirty = undo.nnue_dirty;
+        board.nnue_initialized = undo.nnue_initialized;
     }
 }

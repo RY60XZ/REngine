@@ -1,4 +1,5 @@
 #include"rengine/eval.h"
+#include"rengine/nnue.h"
 #include"rengine/square.h"
 #include<bit>
 
@@ -102,8 +103,15 @@ namespace rengine {
         }
     }
 
-    Score evaluate(const Board& board) {
+    Score evaluate_pst(const Board& board) {
         Score white_minus_black = evaluate_for(board, WHITE) - evaluate_for(board, BLACK);
         return board.side_to_move == WHITE ? white_minus_black : -white_minus_black;
+    }
+
+    Score evaluate(const Board& board) {
+        if (nnue_is_loaded()) {
+            return evaluate_nnue(board);
+        }
+        return evaluate_pst(board);
     }
 }

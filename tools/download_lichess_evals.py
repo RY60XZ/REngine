@@ -7,8 +7,10 @@ Defaults are anchored to the parent REngine directory:
     raw zst: <REngine>/data/lichess_evals/raw/
     csv:     <REngine>/data/lichess_evals/processed/
 
-For each FEN JSON object, the CSV keeps one eval only: the lowest-depth eval
-whose depth is in [10, 20] and whose first PV has either `cp` or `mate`.
+For each static position, the CSV keeps one eval only: the highest-depth eval
+at or above the requested minimum depth whose first PV has either `cp` or
+`mate`. Duplicate positions are collapsed by board/side/castling/en-passant
+identity while still writing a six-field FEN (`fen6`) to the CSV.
 """
 
 from __future__ import annotations
@@ -56,6 +58,8 @@ class ExtractSummary:
     output_path: str
     records_read: int
     rows_written: int
+    duplicate_positions: int
+    labels_replaced_by_deeper_eval: int
     skipped_without_eval: int
     skipped_outside_depth: int
     skipped_bad_json: int
@@ -247,21 +251,34 @@ def fen_with_counters(fen: str) -> str:
     return fen
 
 
-def default_csv_path(output_dir: Path, byte_limit: int) -> Path:
-    return output_dir / f"lichess_db_eval.first_{size_slug(byte_limit)}.depth_10_20.csv"
+def position_key(fen: str) -> str:
+    fields = fen.split()
+    if len(fields) < 4:
+        return fen
+    return " ".join(fields[:4])
 
 
-def pick_lowest_depth_eval(
+def default_csv_path(output_dir: Path, byte_limit: int, min_depth: int, max_depth: int | None) -> Path:
+    depth_slug = f"depth_{min_depth}_plus" if max_depth is None else f"depth_{min_depth}_{max_depth}"
+    return output_dir / f"lichess_db_eval.first_{size_slug(byte_limit)}.{depth_slug}.csv"
+
+
+def mate_to_cp(mate: int) -> int:
+    sign = 1 if mate > 0 else -1
+    return sign * (20100 - abs(mate))
+
+
+def pick_highest_depth_eval(
     position: dict[str, Any],
     min_depth: int,
-    max_depth: int,
+    max_depth: int | None,
     clamp_cp: int | None,
     clamp_mate: int | None,
-) -> dict[str, Any] | None:
+) -> tuple[tuple[int, int, int], dict[str, Any]] | None:
     best: tuple[int, int, int, dict[str, Any]] | None = None
     for eval_entry in position.get("evals", []):
         depth = int(eval_entry.get("depth", -1))
-        if depth < min_depth or depth > max_depth:
+        if depth < min_depth or (max_depth is not None and depth > max_depth):
             continue
 
         pvs = eval_entry.get("pvs") or []
@@ -284,6 +301,7 @@ def pick_lowest_depth_eval(
             if clamp_mate is not None:
                 mate_value = max(-clamp_mate, min(clamp_mate, mate_value))
             mate = mate_value
+            cp = mate_to_cp(mate_value)
 
         candidate = (depth, knodes, len(pvs), {
             "fen6": fen_with_counters(position["fen"]),
@@ -291,17 +309,17 @@ def pick_lowest_depth_eval(
             "cp": cp,
             "mate": mate,
         })
-        if best is None or candidate[:3] < best[:3]:
+        if best is None or candidate[:3] > best[:3]:
             best = candidate
 
-    return None if best is None else best[3]
+    return None if best is None else (best[:3], best[3])
 
 
 def extract_csv(
     input_path: Path,
     output_path: Path,
     min_depth: int,
-    max_depth: int,
+    max_depth: int | None,
     clamp_cp: int | None,
     clamp_mate: int | None,
     max_rows: int | None,
@@ -318,20 +336,21 @@ def extract_csv(
 
     records_read = 0
     rows_written = 0
+    duplicate_positions = 0
+    labels_replaced_by_deeper_eval = 0
     skipped_without_eval = 0
     skipped_outside_depth = 0
     skipped_bad_json = 0
     truncated_tail = False
     columns = ["fen6", "depth", "cp", "mate"]
+    best_by_position: dict[str, tuple[tuple[int, int, int], dict[str, Any]]] = {}
+    position_order: list[str] = []
 
     process: subprocess.Popen[str] | None = None
     text_reader: io.TextIOWrapper | Any | None = None
     reader: Any | None = None
 
-    with input_path.open("rb") as compressed, output_path.open("w", encoding="utf-8", newline="") as output:
-        csv_writer = csv.DictWriter(output, fieldnames=columns)
-        csv_writer.writeheader()
-
+    with input_path.open("rb") as compressed:
         if zstd is not None:
             dctx = zstd.ZstdDecompressor(max_window_size=2**31)
             reader = dctx.stream_reader(compressed)
@@ -357,7 +376,7 @@ def extract_csv(
             zstd_errors = ()
 
         try:
-            while text_reader is not None and (max_rows is None or rows_written < max_rows):
+            while text_reader is not None:
                 line = text_reader.readline()
                 if line == "":
                     break
@@ -372,14 +391,14 @@ def extract_csv(
                     continue
 
                 records_read += 1
-                label = pick_lowest_depth_eval(
+                selected = pick_highest_depth_eval(
                     position,
                     min_depth=min_depth,
                     max_depth=max_depth,
                     clamp_cp=clamp_cp,
                     clamp_mate=clamp_mate,
                 )
-                if label is None:
+                if selected is None:
                     has_any_scored_eval = any(
                         ("cp" in ((eval_entry.get("pvs") or [{}])[0]) or
                          "mate" in ((eval_entry.get("pvs") or [{}])[0]))
@@ -392,8 +411,17 @@ def extract_csv(
                         skipped_without_eval += 1
                     continue
 
-                csv_writer.writerow(label)
-                rows_written += 1
+                sort_key, label = selected
+                key = position_key(position["fen"])
+                previous = best_by_position.get(key)
+                if previous is None:
+                    position_order.append(key)
+                    best_by_position[key] = selected
+                else:
+                    duplicate_positions += 1
+                    if sort_key > previous[0]:
+                        labels_replaced_by_deeper_eval += 1
+                        best_by_position[key] = selected
         except (EOFError, UnicodeDecodeError, *zstd_errors):
             truncated_tail = True
         finally:
@@ -418,11 +446,25 @@ def extract_csv(
                     if "unexpected end" not in stderr.lower() and "premature end" not in stderr.lower():
                         print(stderr.strip(), file=sys.stderr)
 
+    with output_path.open("w", encoding="utf-8", newline="") as output:
+        csv_writer = csv.DictWriter(output, fieldnames=columns)
+        csv_writer.writeheader()
+        for key in position_order:
+            if max_rows is not None and rows_written >= max_rows:
+                break
+            selected = best_by_position.get(key)
+            if selected is None:
+                continue
+            csv_writer.writerow(selected[1])
+            rows_written += 1
+
     return ExtractSummary(
         input_path=str(input_path),
         output_path=str(output_path),
         records_read=records_read,
         rows_written=rows_written,
+        duplicate_positions=duplicate_positions,
+        labels_replaced_by_deeper_eval=labels_replaced_by_deeper_eval,
         skipped_without_eval=skipped_without_eval,
         skipped_outside_depth=skipped_outside_depth,
         skipped_bad_json=skipped_bad_json,
@@ -450,13 +492,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--csv-output",
         type=Path,
-        help=f"processed CSV output path (default: {DEFAULT_CSV_DIR}/lichess_db_eval.first_<limit>.depth_10_20.csv)",
+        help=f"processed CSV output path (default: {DEFAULT_CSV_DIR}/lichess_db_eval.first_<limit>.depth_<min>_plus.csv)",
     )
     parser.add_argument("--no-resume", action="store_true", help="restart instead of appending a partial file")
     parser.add_argument("--chunk-size", default="8MiB", help="download chunk size (default: 8MiB)")
     parser.add_argument("--timeout", type=float, default=60.0, help="HTTP timeout in seconds")
-    parser.add_argument("--min-depth", type=int, default=10, help="minimum Stockfish depth to keep")
-    parser.add_argument("--max-depth", type=int, default=20, help="maximum Stockfish depth to keep")
+    parser.add_argument("--min-depth", type=int, default=20, help="minimum Stockfish depth to keep")
+    parser.add_argument("--max-depth", type=int, default=None, help="optional maximum Stockfish depth to keep")
     parser.add_argument("--clamp-cp", type=int, default=None, help="optional absolute centipawn clamp")
     parser.add_argument("--clamp-mate", type=int, default=None, help="optional absolute mate-distance clamp")
     parser.add_argument("--max-rows", type=int, help="optional cap on extracted CSV rows")
@@ -473,9 +515,14 @@ def main() -> int:
     byte_limit = parse_size(args.limit)
     chunk_size = parse_size(args.chunk_size)
     output_path = args.output or default_output_path(args.url, args.output_dir, byte_limit)
-    csv_output_path = args.csv_output or default_csv_path(DEFAULT_CSV_DIR, byte_limit)
+    csv_output_path = args.csv_output or default_csv_path(
+        DEFAULT_CSV_DIR,
+        byte_limit,
+        args.min_depth,
+        args.max_depth,
+    )
 
-    if args.min_depth > args.max_depth:
+    if args.max_depth is not None and args.min_depth > args.max_depth:
         raise SystemExit("--min-depth must be <= --max-depth")
 
     download_summary = download_prefix(

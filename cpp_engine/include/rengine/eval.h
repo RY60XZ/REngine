@@ -5,6 +5,7 @@
 #include"rengine/search_types.h"
 
 namespace rengine {
+    Score evaluate_pst(const Board& board);
     Score evaluate(const Board& board);
 }
 

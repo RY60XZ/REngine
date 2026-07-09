@@ -6,6 +6,8 @@
 #include<cassert>
 namespace rengine {
     inline constexpr int MAX_POSITION_HISTORY = 4096;
+    inline constexpr int NNUE_HIDDEN_SIZE = 256;
+    using NnueAccumulator = std::array<std::array<float, NNUE_HIDDEN_SIZE>, 2>;
 
     struct Board {
         Bitboard pieces[2][6]{};
@@ -21,6 +23,10 @@ namespace rengine {
         int full_move_number = 1;
         int position_history_size = 0;
         std::array<ZobristKey, MAX_POSITION_HISTORY> position_history{};
+
+        mutable NnueAccumulator nnue_accumulator{};
+        mutable bool nnue_dirty = true;
+        mutable bool nnue_initialized = false;
     };
 
     void clear(Board& board);

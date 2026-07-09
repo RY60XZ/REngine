@@ -18,6 +18,7 @@ set(RENGINE_CORE_SOURCES
         src/make_move.cpp
         src/perft.cpp
         src/eval.cpp
+        src/nnue.cpp
         src/search.cpp
         src/move_ordering.cpp
         src/zobrist.cpp
@@ -42,6 +43,7 @@ set(RENGINE_CORE_HEADERS
         include/rengine/tt.h
         include/rengine/types.h
         include/rengine/eval.h
+        include/rengine/nnue.h
         include/rengine/search_types.h
         include/rengine/search_stack.h
         include/rengine/search.h
@@ -115,6 +117,9 @@ target_link_libraries(test_zobrist PRIVATE rengine_core)
 add_executable(test_eval tests/test_eval.cpp)
 target_link_libraries(test_eval PRIVATE rengine_core)
 
+add_executable(test_nnue tests/test_nnue.cpp)
+target_link_libraries(test_nnue PRIVATE rengine_core)
+
 add_executable(test_search_smoke tests/test_search_smoke.cpp)
 target_link_libraries(test_search_smoke PRIVATE rengine_core)
 
@@ -136,5 +141,6 @@ add_test(NAME move_format COMMAND test_move_format)
 add_test(NAME move_ordering COMMAND test_move_ordering)
 add_test(NAME zobrist COMMAND test_zobrist)
 add_test(NAME eval COMMAND test_eval)
+add_test(NAME nnue COMMAND test_nnue)
 add_test(NAME search_smoke COMMAND test_search_smoke)
 add_test(NAME uci COMMAND test_uci)

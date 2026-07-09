@@ -22,5 +22,10 @@ namespace rengine{
         board.half_move_clock = 0;
         board.full_move_number = 1;
         board.position_history_size = 0;
+        for (auto& accumulator : board.nnue_accumulator) {
+            accumulator.fill(0.0f);
+        }
+        board.nnue_dirty = true;
+        board.nnue_initialized = false;
     }
 }

@@ -15,7 +15,7 @@ import torch.nn.functional as F
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CSV = ROOT / "data/lichess_evals/processed/lichess_db_eval.first_2GB.depth_10_20.csv"
+DEFAULT_CSV = ROOT / "data/lichess_evals/processed/lichess_db_eval.first_2GB.depth_20_plus.csv"
 DEFAULT_OUT = ROOT / "models/eval_mlp/eval_mlp.pt"
 
 KING_BUCKETS = 64
@@ -224,6 +224,15 @@ def target_cp_from_row(row: dict[str, str], target_squash_cp: float) -> float | 
     return squash_cp(side_to_move_cp(fen6, white_cp), target_squash_cp)
 
 
+def residual_target_from_row(row: dict[str, str], target_squash_cp: float) -> tuple[float, float, float] | None:
+    full_target = target_cp_from_row(row, target_squash_cp)
+    if full_target is None:
+        return None
+    pst = pst_eval_cp(row["fen6"])
+    residual = full_target - pst
+    return residual, pst, full_target
+
+
 def is_val(fen6: str, val_mod: int) -> bool:
     return zlib.crc32(fen6.encode("utf-8")) % val_mod == 0
 
@@ -236,15 +245,17 @@ def batches(
     want_val: bool,
     val_mod: int,
 ):
-    xs_white, xs_black, stms, ys = [], [], [], []
+    xs_white, xs_black, stms = [], [], []
+    residuals, psts, targets = [], [], []
     with csv_path.open("r", encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
             fen6 = row["fen6"]
             if is_val(fen6, val_mod) != want_val:
                 continue
-            cp = target_cp_from_row(row, target_squash_cp)
-            if cp is None:
+            residual_target = residual_target_from_row(row, target_squash_cp)
+            if residual_target is None:
                 continue
+            residual, pst, target = residual_target
             try:
                 white_features, black_features, stm = fen6_to_features(fen6)
             except (KeyError, ValueError):
@@ -252,21 +263,28 @@ def batches(
             xs_white.append(white_features)
             xs_black.append(black_features)
             stms.append(stm)
-            ys.append(cp / target_scale)
-            if len(ys) == batch_size:
+            residuals.append(residual / target_scale)
+            psts.append(pst / target_scale)
+            targets.append(target / target_scale)
+            if len(residuals) == batch_size:
                 yield (
                     torch.tensor(xs_white, dtype=torch.long),
                     torch.tensor(xs_black, dtype=torch.long),
                     torch.tensor(stms, dtype=torch.long),
-                    torch.tensor(ys, dtype=torch.float32),
+                    torch.tensor(residuals, dtype=torch.float32),
+                    torch.tensor(psts, dtype=torch.float32),
+                    torch.tensor(targets, dtype=torch.float32),
                 )
-                xs_white, xs_black, stms, ys = [], [], [], []
-    if ys:
+                xs_white, xs_black, stms = [], [], []
+                residuals, psts, targets = [], [], []
+    if residuals:
         yield (
             torch.tensor(xs_white, dtype=torch.long),
             torch.tensor(xs_black, dtype=torch.long),
             torch.tensor(stms, dtype=torch.long),
-            torch.tensor(ys, dtype=torch.float32),
+            torch.tensor(residuals, dtype=torch.float32),
+            torch.tensor(psts, dtype=torch.float32),
+            torch.tensor(targets, dtype=torch.float32),
         )
 
 
@@ -296,7 +314,7 @@ class EvalNNUE(nn.Module):
 def mae_cp(model: EvalNNUE, csv_path: Path, args) -> float:
     model.eval()
     total_abs, n = 0.0, 0
-    for x_white, x_black, stm, y in batches(
+    for x_white, x_black, stm, _residual, pst, target in batches(
         csv_path,
         args.batch_size,
         args.target_scale,
@@ -307,10 +325,11 @@ def mae_cp(model: EvalNNUE, csv_path: Path, args) -> float:
         x_white = x_white.to(args.device)
         x_black = x_black.to(args.device)
         stm = stm.to(args.device)
-        y = y.to(args.device)
-        pred = model(x_white, x_black, stm)
-        total_abs += (pred - y).abs().sum().item() * args.target_scale
-        n += y.numel()
+        pst = pst.to(args.device)
+        target = target.to(args.device)
+        pred_final = pst + model(x_white, x_black, stm)
+        total_abs += (pred_final - target).abs().sum().item() * args.target_scale
+        n += target.numel()
     return total_abs / max(n, 1)
 
 
@@ -324,7 +343,7 @@ def pst_mae_cp(csv_path: Path, args) -> float:
             target = target_cp_from_row(row, args.target_squash_cp)
             if target is None:
                 continue
-            pred = squash_cp(pst_eval_cp(fen6), args.target_squash_cp)
+            pred = pst_eval_cp(fen6)
             total_abs += abs(pred - target)
             n += 1
     return total_abs / max(n, 1)
@@ -342,7 +361,7 @@ def train(args) -> None:
         model.train()
         started = time.time()
         total_loss, n = 0.0, 0
-        for x_white, x_black, stm, y in batches(
+        for x_white, x_black, stm, residual, _pst, _target in batches(
             args.csv,
             args.batch_size,
             args.target_scale,
@@ -353,28 +372,32 @@ def train(args) -> None:
             x_white = x_white.to(args.device)
             x_black = x_black.to(args.device)
             stm = stm.to(args.device)
-            y = y.to(args.device)
+            residual = residual.to(args.device)
             opt.zero_grad(set_to_none=True)
-            loss = F.smooth_l1_loss(model(x_white, x_black, stm), y, beta=args.huber_beta)
+            loss = F.smooth_l1_loss(model(x_white, x_black, stm), residual, beta=args.huber_beta)
             loss.backward()
             opt.step()
-            total_loss += loss.item() * y.numel()
-            n += y.numel()
+            with torch.no_grad():
+                model.embed.weight[PAD].zero_()
+            total_loss += loss.item() * residual.numel()
+            n += residual.numel()
 
         val_mae = mae_cp(model, args.csv, args)
         print(
             f"epoch {epoch:02d} "
             f"loss={total_loss / max(n, 1):.5f} "
-            f"mlp_{val_name}={val_mae:.1f}cp "
+            f"pst_plus_nnue_{val_name}={val_mae:.1f}cp "
             f"pst_{val_name}={pst_val_mae:.1f}cp "
             f"time={time.time() - started:.1f}s"
         )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    with torch.no_grad():
+        model.embed.weight[PAD].zero_()
     torch.save(
         {
             "model": model.state_dict(),
-            "architecture": "halfkp_lite_two_accumulator",
+            "architecture": "halfkp_lite_two_accumulator_residual",
             "hidden": args.hidden,
             "head_hidden": args.head_hidden,
             "features": FEATURES,
@@ -389,7 +412,10 @@ def train(args) -> None:
             "activation_clip": args.activation_clip,
             "csv_target_perspective": "white",
             "trained_target_perspective": "side_to_move",
-            "pst_baseline": "copied from cpp_engine/src/eval.cpp: material + PST, side-to-move-relative",
+            "trained_output": "residual_correction_cp",
+            "residual_definition": "model_target = squash(stockfish_side_to_move_cp, target_squash_cp) - pst_eval_cp(fen6)",
+            "final_eval_definition": "final_eval_cp = pst_eval_cp(fen6) + model_output_cp",
+            "pst_baseline": "embedded material + PST table, side-to-move-relative",
             "feature_mapping": "0..49151 HalfKP: rel_king*768 + rel_piece*64 + rel_square; 49152..49155 castling own-ks,own-qs,opp-ks,opp-qs per accumulator perspective",
         },
         args.out,

@@ -1,4 +1,5 @@
 #include "rengine/fen.h"
+#include "rengine/nnue.h"
 #include "rengine/types.h"
 #include "rengine/square.h"
 #include "rengine/zobrist.h"
@@ -73,6 +74,7 @@ namespace rengine {
 
         update_zobrist_key(board);
         reset_position_history(board);
+        refresh_nnue(board);
     }
 
     std::string board_to_fen(const Board &board) {
