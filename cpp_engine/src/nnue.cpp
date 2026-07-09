@@ -15,8 +15,8 @@
 
 namespace rengine {
     namespace {
-        constexpr char NNUE_MAGIC[8] = {'R', 'E', 'N', 'N', 'U', 'E', '3', '\0'};
-        constexpr std::uint32_t NNUE_FORMAT_VERSION = 3;
+        constexpr char NNUE_MAGIC[8] = {'R', 'E', 'N', 'N', 'U', 'E', '4', '\0'};
+        constexpr std::uint32_t NNUE_FORMAT_VERSION = 4;
         constexpr int KING_BUCKETS = 64;
         constexpr int PIECE_KINDS = 12;
         constexpr int SQUARES = 64;
@@ -32,14 +32,19 @@ namespace rengine {
             int hidden = 0;
             int head_hidden = 0;
             int max_active = 0;
+            int accumulator_scale = 0;
+            int fc1_weight_scale = 0;
+            int out_weight_scale = 0;
+            int activation_clip_q = 0;
             float target_scale = 1000.0f;
             float activation_clip = 1.0f;
-            std::vector<float> embedding;
-            std::array<float, NNUE_HIDDEN_SIZE> pad_base{};
-            std::vector<float> fc1_weight;
-            std::vector<float> fc1_bias;
-            std::vector<float> out_weight;
-            float out_bias = 0.0f;
+            double output_to_cp = 0.0;
+            std::vector<std::int16_t> embedding;
+            std::array<std::int32_t, NNUE_HIDDEN_SIZE> pad_base{};
+            std::vector<std::int16_t> fc1_weight;
+            std::vector<std::int32_t> fc1_bias;
+            std::vector<std::int16_t> out_weight;
+            std::int32_t out_bias = 0;
         };
 
         Network g_nnue;
@@ -50,10 +55,11 @@ namespace rengine {
             return static_cast<bool>(in);
         }
 
-        bool read_floats(std::ifstream& in, std::vector<float>& values, std::size_t count) {
+        template <typename T>
+        bool read_values(std::ifstream& in, std::vector<T>& values, std::size_t count) {
             values.resize(count);
             in.read(reinterpret_cast<char*>(values.data()),
-                    static_cast<std::streamsize>(count * sizeof(float)));
+                    static_cast<std::streamsize>(count * sizeof(T)));
             return static_cast<bool>(in);
         }
 
@@ -78,9 +84,9 @@ namespace rengine {
             return (rel_king * PIECE_KINDS + rel_piece) * SQUARES + rel_square;
         }
 
-        void add_feature(NnueAccumulator& accumulator, Color perspective, int feature, float sign) {
-            const float* row = g_nnue.embedding.data() +
-                               static_cast<std::size_t>(feature) * NNUE_HIDDEN_SIZE;
+        void add_feature(NnueAccumulator& accumulator, Color perspective, int feature, int sign) {
+            const std::int16_t* row = g_nnue.embedding.data() +
+                                      static_cast<std::size_t>(feature) * NNUE_HIDDEN_SIZE;
             auto& acc = accumulator[perspective];
             for (int i = 0; i < NNUE_HIDDEN_SIZE; ++i) {
                 acc[i] += sign * row[i];
@@ -88,7 +94,7 @@ namespace rengine {
         }
 
         void add_piece_feature(const Board& board, NnueAccumulator& accumulator,
-                               Piece piece, Square square, float sign) {
+                               Piece piece, Square square, int sign) {
             for (Color perspective : {WHITE, BLACK}) {
                 Square king = find_king_square(board, perspective);
                 if (king == INVALID_SQUARE) {
@@ -99,7 +105,7 @@ namespace rengine {
             }
         }
 
-        void add_castling_features(NnueAccumulator& accumulator, unsigned rights, float sign) {
+        void add_castling_features(NnueAccumulator& accumulator, unsigned rights, int sign) {
             if (rights & WHITE_KINGSIDE_CASTLING) {
                 add_feature(accumulator, WHITE, CASTLING_FEATURE_BASE + 0, sign);
                 add_feature(accumulator, BLACK, CASTLING_FEATURE_BASE + 2, sign);
@@ -134,13 +140,13 @@ namespace rengine {
                     while (pieces != 0) {
                         Square square = static_cast<Square>(std::countr_zero(pieces));
                         Piece piece = static_cast<Piece>(color * 6 + piece_type + 1);
-                        add_piece_feature(board, accumulator, piece, square, 1.0f);
+                        add_piece_feature(board, accumulator, piece, square, 1);
                         pieces &= pieces - 1;
                     }
                 }
             }
 
-            add_castling_features(accumulator, board.castling_rights, 1.0f);
+            add_castling_features(accumulator, board.castling_rights, 1);
             return true;
         }
 
@@ -148,30 +154,44 @@ namespace rengine {
             return static_cast<Piece>(color_of(moved_piece) * 6 + promotion_type + 1);
         }
 
-        float clipped(float value) {
-            return std::clamp(value, 0.0f, g_nnue.activation_clip);
+        std::int32_t clipped_accumulator(std::int32_t value) {
+            return std::clamp(value, 0, g_nnue.activation_clip_q);
         }
 
-        float forward_scaled(const Board& board) {
+        std::int32_t rounded_divide(std::int64_t value, std::int32_t divisor) {
+            if (value >= 0) {
+                return static_cast<std::int32_t>((value + divisor / 2) / divisor);
+            }
+            return -static_cast<std::int32_t>((-value + divisor / 2) / divisor);
+        }
+
+        int forward_correction_cp(const Board& board) {
             const auto& first = board.nnue_accumulator[board.side_to_move];
             const auto& second = board.nnue_accumulator[opposite_color(board.side_to_move)];
-
-            float output = g_nnue.out_bias;
-            for (int hidden_index = 0; hidden_index < g_nnue.head_hidden; ++hidden_index) {
-                const float* weights = g_nnue.fc1_weight.data() +
-                                       static_cast<std::size_t>(hidden_index) * NNUE_INPUT_SIZE;
-                float value = g_nnue.fc1_bias[hidden_index];
-
-                for (int i = 0; i < NNUE_HIDDEN_SIZE; ++i) {
-                    value += weights[i] * clipped(first[i]);
-                }
-                for (int i = 0; i < NNUE_HIDDEN_SIZE; ++i) {
-                    value += weights[NNUE_HIDDEN_SIZE + i] * clipped(second[i]);
-                }
-
-                output += g_nnue.out_weight[hidden_index] * clipped(value);
+            std::array<std::int32_t, NNUE_INPUT_SIZE> input{};
+            for (int i = 0; i < NNUE_HIDDEN_SIZE; ++i) {
+                input[i] = clipped_accumulator(first[i]);
+                input[NNUE_HIDDEN_SIZE + i] = clipped_accumulator(second[i]);
             }
-            return output;
+
+            std::int64_t output = g_nnue.out_bias;
+            for (int hidden_index = 0; hidden_index < g_nnue.head_hidden; ++hidden_index) {
+                const std::int16_t* weights = g_nnue.fc1_weight.data() +
+                                              static_cast<std::size_t>(hidden_index) * NNUE_INPUT_SIZE;
+                std::int64_t value = g_nnue.fc1_bias[hidden_index];
+
+                for (int i = 0; i < NNUE_INPUT_SIZE; ++i) {
+                    value += static_cast<std::int64_t>(weights[i]) * input[i];
+                }
+
+                std::int32_t hidden_value = std::clamp(
+                    rounded_divide(value, g_nnue.fc1_weight_scale),
+                    0,
+                    g_nnue.activation_clip_q
+                );
+                output += static_cast<std::int64_t>(g_nnue.out_weight[hidden_index]) * hidden_value;
+            }
+            return static_cast<int>(std::lround(static_cast<double>(output) * g_nnue.output_to_cp));
         }
     }
 
@@ -193,6 +213,9 @@ namespace rengine {
         std::uint32_t head_hidden = 0;
         std::uint32_t max_active = 0;
         std::uint32_t flags = 0;
+        std::uint32_t accumulator_scale = 0;
+        std::uint32_t fc1_weight_scale = 0;
+        std::uint32_t out_weight_scale = 0;
         float target_scale = 0.0f;
         float activation_clip = 0.0f;
 
@@ -203,7 +226,10 @@ namespace rengine {
             !read_value(in, max_active) ||
             !read_value(in, flags) ||
             !read_value(in, target_scale) ||
-            !read_value(in, activation_clip)) {
+            !read_value(in, activation_clip) ||
+            !read_value(in, accumulator_scale) ||
+            !read_value(in, fc1_weight_scale) ||
+            !read_value(in, out_weight_scale)) {
             return false;
         }
 
@@ -213,7 +239,10 @@ namespace rengine {
             head_hidden == 0 ||
             max_active == 0 ||
             activation_clip <= 0.0f ||
-            target_scale <= 0.0f) {
+            target_scale <= 0.0f ||
+            accumulator_scale == 0 ||
+            fc1_weight_scale == 0 ||
+            out_weight_scale == 0) {
             return false;
         }
 
@@ -222,16 +251,24 @@ namespace rengine {
         next.hidden = static_cast<int>(hidden);
         next.head_hidden = static_cast<int>(head_hidden);
         next.max_active = static_cast<int>(max_active);
+        next.accumulator_scale = static_cast<int>(accumulator_scale);
+        next.fc1_weight_scale = static_cast<int>(fc1_weight_scale);
+        next.out_weight_scale = static_cast<int>(out_weight_scale);
         next.target_scale = target_scale;
         next.activation_clip = activation_clip;
+        next.activation_clip_q = static_cast<int>(
+            std::lround(static_cast<double>(activation_clip) * next.accumulator_scale)
+        );
+        next.output_to_cp = static_cast<double>(target_scale) /
+                            (static_cast<double>(next.accumulator_scale) * next.out_weight_scale);
 
-        if (!read_floats(in, next.embedding,
+        if (!read_values(in, next.embedding,
                          static_cast<std::size_t>(next.features) * next.hidden) ||
             !read_value(in, next.pad_base) ||
-            !read_floats(in, next.fc1_weight,
+            !read_values(in, next.fc1_weight,
                          static_cast<std::size_t>(next.head_hidden) * NNUE_INPUT_SIZE) ||
-            !read_floats(in, next.fc1_bias, next.head_hidden) ||
-            !read_floats(in, next.out_weight, next.head_hidden) ||
+            !read_values(in, next.fc1_bias, next.head_hidden) ||
+            !read_values(in, next.out_weight, next.head_hidden) ||
             !read_value(in, next.out_bias)) {
             return false;
         }
@@ -305,17 +342,17 @@ namespace rengine {
 
         Square from = move_from(move);
         Square to = move_to(move);
-        add_piece_feature(board, board.nnue_accumulator, moved_piece, from, -1.0f);
+        add_piece_feature(board, board.nnue_accumulator, moved_piece, from, -1);
 
         if (flag == CAPTURE || flag == PROMOTION_CAPTURE) {
             if (captured_piece != NO_PIECE) {
-                add_piece_feature(board, board.nnue_accumulator, captured_piece, to, -1.0f);
+                add_piece_feature(board, board.nnue_accumulator, captured_piece, to, -1);
             }
         }
         else if (flag == EN_PASSANT) {
             Square captured_square = color_of(moved_piece) == WHITE ? to - 8 : to + 8;
             if (captured_piece != NO_PIECE) {
-                add_piece_feature(board, board.nnue_accumulator, captured_piece, captured_square, -1.0f);
+                add_piece_feature(board, board.nnue_accumulator, captured_piece, captured_square, -1);
             }
         }
 
@@ -323,13 +360,65 @@ namespace rengine {
         if (flag == PROMOTION || flag == PROMOTION_CAPTURE) {
             placed_piece = promoted_piece_for(moved_piece, move_promotion_type(move));
         }
-        add_piece_feature(board, board.nnue_accumulator, placed_piece, to, 1.0f);
+        add_piece_feature(board, board.nnue_accumulator, placed_piece, to, 1);
 
         unsigned new_castling_rights = board.castling_rights;
         if (old_castling_rights != new_castling_rights) {
-            add_castling_features(board.nnue_accumulator, old_castling_rights, -1.0f);
-            add_castling_features(board.nnue_accumulator, new_castling_rights, 1.0f);
+            add_castling_features(board.nnue_accumulator, old_castling_rights, -1);
+            add_castling_features(board.nnue_accumulator, new_castling_rights, 1);
         }
+    }
+
+    void update_nnue_after_unmove(Board& board, Move move, Piece moved_piece,
+                                  Piece captured_piece, unsigned post_castling_rights,
+                                  bool previous_dirty, bool previous_initialized) {
+        if (!g_nnue.loaded) {
+            board.nnue_dirty = true;
+            board.nnue_initialized = false;
+            return;
+        }
+        if (!previous_initialized || previous_dirty || moved_piece == NO_PIECE) {
+            board.nnue_dirty = previous_dirty;
+            board.nnue_initialized = previous_initialized;
+            return;
+        }
+
+        MoveFlag flag = move_flag(move);
+        if (piece_type_of(moved_piece) == KING || flag == CASTLING ||
+            !board.nnue_initialized || board.nnue_dirty) {
+            refresh_nnue(board);
+            return;
+        }
+
+        Square from = move_from(move);
+        Square to = move_to(move);
+        Piece placed_piece = moved_piece;
+        if (flag == PROMOTION || flag == PROMOTION_CAPTURE) {
+            placed_piece = promoted_piece_for(moved_piece, move_promotion_type(move));
+        }
+
+        add_piece_feature(board, board.nnue_accumulator, placed_piece, to, -1);
+        if (flag == CAPTURE || flag == PROMOTION_CAPTURE) {
+            if (captured_piece != NO_PIECE) {
+                add_piece_feature(board, board.nnue_accumulator, captured_piece, to, 1);
+            }
+        }
+        else if (flag == EN_PASSANT) {
+            Square captured_square = color_of(moved_piece) == WHITE ? to - 8 : to + 8;
+            if (captured_piece != NO_PIECE) {
+                add_piece_feature(board, board.nnue_accumulator, captured_piece, captured_square, 1);
+            }
+        }
+        add_piece_feature(board, board.nnue_accumulator, moved_piece, from, 1);
+
+        unsigned previous_castling_rights = board.castling_rights;
+        if (post_castling_rights != previous_castling_rights) {
+            add_castling_features(board.nnue_accumulator, post_castling_rights, -1);
+            add_castling_features(board.nnue_accumulator, previous_castling_rights, 1);
+        }
+
+        board.nnue_dirty = false;
+        board.nnue_initialized = true;
     }
 
     Score evaluate_nnue(const Board& board) {
@@ -344,12 +433,11 @@ namespace rengine {
             return evaluate_pst(board);
         }
 
-        float correction = forward_scaled(board) * g_nnue.target_scale;
-        int score = static_cast<int>(std::lround(static_cast<float>(evaluate_pst(board)) + correction));
+        int score = evaluate_pst(board) + forward_correction_cp(board);
         return std::clamp(score, VALUE_MATED_IN_MAX_PLY + 1, VALUE_MATE_IN_MAX_PLY - 1);
     }
 
-    bool nnue_accumulator_matches_recompute(const Board& board, float epsilon) {
+    bool nnue_accumulator_matches_recompute(const Board& board, int epsilon) {
         if (!g_nnue.loaded || !board.nnue_initialized || board.nnue_dirty) {
             return false;
         }

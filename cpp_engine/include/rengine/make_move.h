@@ -13,7 +13,6 @@ namespace rengine {
         int half_move_clock;
         int full_move_number;
         int position_history_size;
-        NnueAccumulator nnue_accumulator;
         bool nnue_dirty;
         bool nnue_initialized;
     };

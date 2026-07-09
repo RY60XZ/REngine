@@ -30,7 +30,6 @@ namespace rengine {
         undo.captured_piece = board.squares[to];
         undo.zobrist_key = board.zobrist_key;
         undo.position_history_size = board.position_history_size;
-        undo.nnue_accumulator = board.nnue_accumulator;
         undo.nnue_dirty = board.nnue_dirty;
         undo.nnue_initialized = board.nnue_initialized;
         xor_castling_key(board);
@@ -184,6 +183,7 @@ namespace rengine {
         Move move = undo.move;
         Square from = move_from(move), to = move_to(move);
         MoveFlag flag = move_flag(move);
+        unsigned post_castling_rights = board.castling_rights;
         Color by = opposite_color(board.side_to_move);
         board.side_to_move = by;
         Piece to_piece = board.squares[to];
@@ -251,9 +251,8 @@ namespace rengine {
         board.half_move_clock = undo.half_move_clock;
         board.full_move_number = undo.full_move_number;
         board.position_history_size = undo.position_history_size;
-        board.nnue_accumulator = undo.nnue_accumulator;
-        board.nnue_dirty = undo.nnue_dirty;
-        board.nnue_initialized = undo.nnue_initialized;
+        update_nnue_after_unmove(board, move, board.squares[from], undo.captured_piece,
+                                 post_castling_rights, undo.nnue_dirty, undo.nnue_initialized);
     }
 
     void make_null_move(Board& board, Undo& undo) {
@@ -263,7 +262,6 @@ namespace rengine {
         undo.half_move_clock = board.half_move_clock;
         undo.full_move_number = board.full_move_number;
         undo.position_history_size = board.position_history_size;
-        undo.nnue_accumulator = board.nnue_accumulator;
         undo.nnue_dirty = board.nnue_dirty;
         undo.nnue_initialized = board.nnue_initialized;
 
@@ -282,7 +280,6 @@ namespace rengine {
         board.half_move_clock = undo.half_move_clock;
         board.full_move_number = undo.full_move_number;
         board.position_history_size = undo.position_history_size;
-        board.nnue_accumulator = undo.nnue_accumulator;
         board.nnue_dirty = undo.nnue_dirty;
         board.nnue_initialized = undo.nnue_initialized;
     }

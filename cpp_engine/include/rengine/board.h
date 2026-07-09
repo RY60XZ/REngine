@@ -7,7 +7,7 @@
 namespace rengine {
     inline constexpr int MAX_POSITION_HISTORY = 4096;
     inline constexpr int NNUE_HIDDEN_SIZE = 256;
-    using NnueAccumulator = std::array<std::array<float, NNUE_HIDDEN_SIZE>, 2>;
+    using NnueAccumulator = std::array<std::array<std::int32_t, NNUE_HIDDEN_SIZE>, 2>;
 
     struct Board {
         Bitboard pieces[2][6]{};
