@@ -19,6 +19,7 @@ set(RENGINE_CORE_SOURCES
         src/perft.cpp
         src/eval.cpp
         src/nnue.cpp
+        src/see.cpp
         src/search.cpp
         src/move_ordering.cpp
         src/zobrist.cpp
@@ -44,6 +45,7 @@ set(RENGINE_CORE_HEADERS
         include/rengine/types.h
         include/rengine/eval.h
         include/rengine/nnue.h
+        include/rengine/see.h
         include/rengine/search_types.h
         include/rengine/search_stack.h
         include/rengine/search.h

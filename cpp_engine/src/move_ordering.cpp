@@ -1,4 +1,5 @@
 #include"rengine/move_ordering.h"
+#include"rengine/see.h"
 #include<algorithm>
 #include<cassert>
 
@@ -7,6 +8,7 @@ namespace rengine {
         constexpr MoveScore PREFERRED_MOVE_SCORE = 1'000'000;
         constexpr MoveScore PROMOTION_SCORE_BASE = 40'000;
         constexpr MoveScore CAPTURE_SCORE_BASE = 20'000;
+        constexpr MoveScore LOSING_CAPTURE_SCORE_BASE = -20'000;
         constexpr MoveScore KILLER_MOVE_SCORE = 10'000;
         constexpr MoveScore KILLER_SLOT_PENALTY = 500;
         constexpr MoveScore HISTORY_SCORE_MAX = 8'000;
@@ -33,7 +35,9 @@ namespace rengine {
                 Piece attacker = board.squares[move_from(move)];
                 assert(attacker != NO_PIECE);
 
-                score += CAPTURE_SCORE_BASE;
+                Score see = see_score(board, move);
+                score += see >= 0 ? CAPTURE_SCORE_BASE : LOSING_CAPTURE_SCORE_BASE;
+                score += see;
                 score += piece_order_value(captured_piece_type(board, move)) * MVV_LVA_VICTIM_SCALE;
                 score -= piece_order_value(piece_type_of(attacker));
             }

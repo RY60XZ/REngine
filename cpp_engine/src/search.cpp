@@ -5,6 +5,7 @@
 #include"rengine/make_move.h"
 #include"rengine/move_ordering.h"
 #include"rengine/movegen.h"
+#include"rengine/see.h"
 #include"rengine/tt.h"
 #include<algorithm>
 #include<atomic>
@@ -122,6 +123,18 @@ namespace rengine {
 
             store_killer_move(ctx.stack, ply, move);
             update_history(ctx.stack, board.side_to_move, move, depth);
+        }
+
+        void prune_losing_captures_by_see(const Board& board, MoveList& moves) {
+            int kept = 0;
+            for (int index = 0; index < moves.size(); ++index) {
+                Move move = moves[index];
+                if (is_capture(move) && !is_promotion(move) && !see_ge(board, move, 0)) {
+                    continue;
+                }
+                moves.moves[kept++] = move;
+            }
+            moves.count = kept;
         }
     }
 
@@ -429,6 +442,7 @@ namespace rengine {
             if (best_score > alpha) alpha = best_score;
 
             generate_qsearch_pseudo_legal_moves(board, qsearch_pseudo_legal_moves);
+            prune_losing_captures_by_see(board, qsearch_pseudo_legal_moves);
         }
         MoveScoreList move_scores;
         score_moves(board, qsearch_pseudo_legal_moves, move_scores, ctx.stack, ply, 0, &ctx.stats);

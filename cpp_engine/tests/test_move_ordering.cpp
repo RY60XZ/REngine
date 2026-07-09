@@ -1,5 +1,6 @@
 #include"rengine/fen.h"
 #include"rengine/move_ordering.h"
+#include"rengine/see.h"
 #include"rengine/search.h"
 #include"rengine/square.h"
 #include<cassert>
@@ -39,6 +40,23 @@ namespace rengine {
         assert(move_order_score(board, queen_promotion) > move_order_score(board, knight_promotion));
         assert(is_noisy_move(queen_promotion));
         assert(!is_noisy_move(quiet));
+    }
+
+    void test_see_scores_capture_sequences() {
+        Board winning = board_from("4k3/8/5q2/8/4N3/8/8/4K3 w - - 0 1");
+        Move knight_takes_queen = encode_move(parse_square("e4"), parse_square("f6"), CAPTURE);
+        assert(see_score(winning, knight_takes_queen) == 900);
+        assert(see_ge(winning, knight_takes_queen, 0));
+
+        Board losing = board_from("r3k3/p7/8/8/8/8/8/Q3K3 w - - 0 1");
+        Move queen_takes_pawn = encode_move(parse_square("a1"), parse_square("a7"), CAPTURE);
+        assert(see_score(losing, queen_takes_pawn) == -800);
+        assert(!see_ge(losing, queen_takes_pawn, 0));
+
+        Board en_passant = board_from("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1");
+        Move ep = encode_move(parse_square("e5"), parse_square("d6"), EN_PASSANT);
+        assert(see_score(en_passant, ep) == 100);
+        assert(see_ge(en_passant, ep, 0));
     }
 
     void test_preferred_move_wins_ties_and_scores() {
@@ -191,6 +209,7 @@ namespace rengine {
 int main() {
     rengine::test_mvv_lva_prefers_valuable_victim_low_attacker();
     rengine::test_promotion_scores_above_quiet_move();
+    rengine::test_see_scores_capture_sequences();
     rengine::test_preferred_move_wins_ties_and_scores();
     rengine::test_select_best_preserves_prior_moves();
     rengine::test_scored_selection_counts_killer_stats_once();

@@ -1,5 +1,6 @@
 #include"rengine/fen.h"
 #include"rengine/draw.h"
+#include"rengine/eval.h"
 #include"rengine/make_move.h"
 #include"rengine/move_format.h"
 #include"rengine/movegen.h"
@@ -82,6 +83,17 @@ namespace rengine {
         Score score = qsearch(board, -VALUE_INF, VALUE_INF, 0, ctx);
 
         assert(score == 890);
+        assert(ctx.stats.qnodes == 1);
+    }
+
+    void test_qsearch_prunes_losing_capture_by_see() {
+        Board board = board_from("r3k3/p7/8/8/8/8/8/Q3K3 w - - 0 1");
+        SearchLimits limits;
+        SearchContext ctx{limits, {}, std::chrono::steady_clock::time_point::max(), false, {}};
+
+        Score score = qsearch(board, -VALUE_INF, VALUE_INF, 0, ctx);
+
+        assert(score == evaluate(board));
         assert(ctx.stats.qnodes == 1);
     }
 
@@ -271,6 +283,7 @@ int main() {
     rengine::test_material_capture_is_selected();
     rengine::test_static_depth_zero_search();
     rengine::test_qsearch_stand_pat_without_noisy_moves();
+    rengine::test_qsearch_prunes_losing_capture_by_see();
     rengine::test_depth_two_pv();
     rengine::test_node_limit_is_deterministic();
     rengine::test_qsearch_terminal_checkmate();
